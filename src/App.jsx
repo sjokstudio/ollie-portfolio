@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { blogPosts } from './content/blogPosts'
 import './App.css'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -127,7 +128,116 @@ function SectionTitle({ eyebrow, title }) {
   )
 }
 
-function App() {
+function SiteHeader({ variant = 'overlay' }) {
+  return (
+    <header className={`site-nav ${variant === 'static' ? 'site-nav-static' : ''}`}>
+      <a className="nav-inner" href="/" aria-label="Ollie home">
+        <span>Ollie</span>
+        <BadgeCheck size={23} />
+      </a>
+      <nav className="nav-links" aria-label="Primary navigation">
+        <a href="/#about">About</a>
+        <a href="/#numbers">Numbers</a>
+        <a href="/#projects">Projects</a>
+        <a href="/blog">Blog</a>
+        <a href="/#contact">Contact</a>
+      </nav>
+      <a className="contact-pill" href="https://x.com/ool69loo" target="_blank" rel="noreferrer">
+        DM on X
+        <ArrowUpRight size={18} />
+      </a>
+    </header>
+  )
+}
+
+function BlogIndex() {
+  return (
+    <main className="blog-page">
+      <SiteHeader variant="static" />
+      <section className="blog-hero page-shell">
+        <p className="section-eyebrow">Ollie Journal</p>
+        <h1 className="blog-title">FIELD NOTES FROM X</h1>
+        <p>
+          把 X 上的短观点、长推和观察沉淀成可检索、可分享、可长期积累的文章。这里会持续整理 AI、Crypto、Music 与数字游民生活。
+        </p>
+      </section>
+
+      <section className="blog-list page-shell" aria-label="Blog posts">
+        {blogPosts.map((post, index) => (
+          <a className="blog-card" href={`/blog/${post.slug}`} key={post.slug}>
+            <span className="blog-index">0{index + 1}</span>
+            <div className="blog-card-media">
+              <img src={post.cover} alt="" />
+            </div>
+            <div className="blog-card-copy">
+              <span>{post.kicker}</span>
+              <h2>{post.title}</h2>
+              <p>{post.excerpt}</p>
+              <small>
+                {post.date} / {post.readTime}
+              </small>
+            </div>
+          </a>
+        ))}
+      </section>
+    </main>
+  )
+}
+
+function BlogPost({ post }) {
+  if (!post) {
+    return (
+      <main className="blog-page">
+        <SiteHeader variant="static" />
+        <section className="blog-hero page-shell">
+          <p className="section-eyebrow">404 / Not Found</p>
+          <h1 className="blog-title">ARTICLE NOT FOUND</h1>
+          <p>这篇文章还没有发布，或者链接已经变更。</p>
+          <a className="inline-link" href="/blog">Back to Blog</a>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className="blog-page">
+      <SiteHeader variant="static" />
+      <article className="article-shell page-shell">
+        <div className="article-header">
+          <a className="inline-link" href="/blog">Back to Blog</a>
+          <p className="section-eyebrow">{post.kicker}</p>
+          <h1>{post.title}</h1>
+          <p>{post.excerpt}</p>
+          <div className="article-meta">
+            <span>{post.date}</span>
+            <span>{post.readTime}</span>
+            <a href={post.sourceUrl} target="_blank" rel="noreferrer">
+              {post.source}
+              <ArrowUpRight size={15} />
+            </a>
+          </div>
+        </div>
+
+        <div className="article-cover">
+          <img src={post.cover} alt="" />
+        </div>
+
+        <div className="article-body">
+          {post.paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          <div className="article-tags">
+            {post.tags.map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+        </div>
+      </article>
+    </main>
+  )
+}
+
+function HomePage() {
   useLayoutEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -141,7 +251,7 @@ function App() {
 
     const ctx = gsap.context(() => {
       gsap.set('body', { overflowX: 'hidden' })
-      gsap.set('.nav-inner, .contact-pill, .hero-kicker, .hero-copy, .hero-meta, .hero-note', {
+      gsap.set('.hero-section .nav-inner, .hero-section .contact-pill, .hero-kicker, .hero-copy, .hero-meta, .hero-note', {
         autoAlpha: 0,
         y: 28,
       })
@@ -166,7 +276,7 @@ function App() {
           ease: 'expo.inOut',
           delay: 0.2,
         })
-        .to('.nav-inner, .contact-pill', { autoAlpha: 1, y: 0, duration: 0.85, stagger: 0.08 }, '-=0.45')
+        .to('.hero-section .nav-inner, .hero-section .contact-pill', { autoAlpha: 1, y: 0, duration: 0.85, stagger: 0.08 }, '-=0.45')
         .to('.hero-kicker', { autoAlpha: 1, y: 0, duration: 0.75 }, '-=0.5')
         .to(
           '.hero-title .line-inner',
@@ -283,22 +393,7 @@ function App() {
         />
         <div className="hero-scrim" />
 
-        <header className="site-nav">
-          <a className="nav-inner" href="#top" aria-label="Ollie home">
-            <span>Ollie</span>
-            <BadgeCheck size={23} />
-          </a>
-          <nav className="nav-links" aria-label="Primary navigation">
-            <a href="#about">About</a>
-            <a href="#numbers">Numbers</a>
-            <a href="#projects">Projects</a>
-            <a href="#contact">Contact</a>
-          </nav>
-          <a className="contact-pill" href="https://x.com/ool69loo" target="_blank" rel="noreferrer">
-            DM on X
-            <ArrowUpRight size={18} />
-          </a>
-        </header>
+        <SiteHeader />
 
         <div className="hero-content page-shell">
           <div className="hero-copy-block">
@@ -482,6 +577,21 @@ function App() {
       </section>
     </main>
   )
+}
+
+function App() {
+  const path = window.location.pathname
+
+  if (path === '/blog' || path === '/blog/') {
+    return <BlogIndex />
+  }
+
+  if (path.startsWith('/blog/')) {
+    const slug = path.replace('/blog/', '').replace(/\/$/, '')
+    return <BlogPost post={blogPosts.find((post) => post.slug === slug)} />
+  }
+
+  return <HomePage />
 }
 
 export default App
