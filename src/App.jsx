@@ -698,6 +698,7 @@ function AdminPage() {
   const [postForm, setPostForm] = useState(emptyPostForm)
   const [uploading, setUploading] = useState(false)
   const [xPostUrl, setXPostUrl] = useState('')
+  const [xPostText, setXPostText] = useState('')
   const [importingXPost, setImportingXPost] = useState(false)
 
   const sortedPosts = useMemo(
@@ -789,7 +790,7 @@ function AdminPage() {
       const data = await fetchJson('/api/admin/import-x-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: xPostUrl }),
+        body: JSON.stringify({ url: xPostUrl, text: xPostText }),
       })
       const draft = data.postDraft || {}
       setPostForm({
@@ -799,6 +800,7 @@ function AdminPage() {
         status: 'draft',
       })
       setXPostUrl('')
+      setXPostText('')
       setMessage('推文已导入为草稿，请检查正文后保存文章。')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (importError) {
@@ -938,6 +940,15 @@ function AdminPage() {
                 placeholder="https://x.com/ool69loo/status/..."
                 value={xPostUrl}
                 onChange={(event) => setXPostUrl(event.target.value)}
+              />
+            </label>
+            <label>
+              展开全文，可选
+              <textarea
+                className="admin-import-text"
+                placeholder="如果这条推文点开“更多”后还有内容，把完整正文复制到这里。留空则自动读取公开摘要。"
+                value={xPostText}
+                onChange={(event) => setXPostText(event.target.value)}
               />
             </label>
             <button type="submit" disabled={importingXPost || !xPostUrl.trim()}>

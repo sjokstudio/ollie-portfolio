@@ -554,6 +554,11 @@
   resize: vertical;
 }
 
+.admin-import-text {
+  min-height: 150px;
+  resize: vertical;
+}
+
 .admin-actions {
   display: flex;
   gap: 12px;

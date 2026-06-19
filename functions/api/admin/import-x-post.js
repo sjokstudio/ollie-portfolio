@@ -48,6 +48,16 @@ function cleanTweetText(html) {
   return text || '这是一条来自 X 的精选内容。'
 }
 
+function cleanManualText(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 function compact(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
@@ -55,6 +65,33 @@ function compact(value) {
 function truncate(value, maxLength) {
   const text = compact(value)
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text
+}
+
+function expandEntities(text, entities) {
+  let nextText = String(text || '')
+  const urls = entities?.urls || []
+
+  for (const item of urls) {
+    if (item.url && item.expanded_url) {
+      nextText = nextText.replaceAll(item.url, item.expanded_url)
+    }
+  }
+
+  return nextText.trim()
+}
+
+async function fetchSyndicationTweet(tweetId) {
+  const response = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=zh-cn`, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+  })
+  if (!response.ok) throw new Error(`X syndication 请求失败：${response.status}`)
+  const data = await response.json()
+  if (!data?.text) return null
+
+  return {
+    text: expandEntities(data.text, data.entities),
+    isTruncatedLongPost: Boolean(data.note_tweet),
+  }
 }
 
 async function fetchOEmbed(url) {
@@ -82,12 +119,28 @@ export async function onRequestPost(context) {
     const session = await requireAdmin(context)
     if (!session) return error('Unauthorized', 401)
 
-    const { url } = await readJson(context.request)
+    const { url, text } = await readJson(context.request)
     const tweet = normalizeUrl(url)
-    const embed = await fetchOEmbed(tweet.url)
-    const tweetText = cleanTweetText(embed.html)
+    const manualText = cleanManualText(text)
+    let tweetText = manualText
+    let isTruncatedLongPost = false
+
+    if (!tweetText) {
+      const syndicationTweet = await fetchSyndicationTweet(tweet.id).catch(() => null)
+      if (syndicationTweet?.text) {
+        tweetText = syndicationTweet.text
+        isTruncatedLongPost = syndicationTweet.isTruncatedLongPost
+      } else {
+        const embed = await fetchOEmbed(tweet.url)
+        tweetText = cleanTweetText(embed.html)
+      }
+    }
+
     const title = truncate(tweetText, MAX_TITLE_LENGTH)
     const excerpt = truncate(tweetText, MAX_EXCERPT_LENGTH)
+    const longPostNote = isTruncatedLongPost
+      ? '\n\n提示：X 返回的长文内容可能被折叠了。如果这条推文有“显示更多”，请在导入面板的“展开全文”里粘贴完整内容后重新导入。'
+      : ''
 
     return json({
       postDraft: {
@@ -97,7 +150,7 @@ export async function onRequestPost(context) {
         category: 'AI',
         excerpt,
         cover: '',
-        body: `${tweetText}\n\n来源：${tweet.url}`,
+        body: `${tweetText}${longPostNote}\n\n来源：${tweet.url}`,
         sourceUrl: tweet.url,
         tags: ['X', 'Ollie'],
         status: 'draft',
