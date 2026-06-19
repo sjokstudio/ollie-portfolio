@@ -138,13 +138,16 @@ export async function requireAdmin(context) {
 export async function ensureSchema(db) {
   if (!db) throw new Error('Missing D1 binding: DB')
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS site_settings (
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS site_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS posts (
+    )`,
+  ).run()
+
+  await db.prepare(
+    `CREATE TABLE IF NOT EXISTS posts (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -158,8 +161,8 @@ export async function ensureSchema(db) {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       published_at TEXT
-    );
-  `)
+    )`,
+  ).run()
 
   const count = await db.prepare('SELECT COUNT(*) AS count FROM posts').first()
   if (count?.count === 0) {
