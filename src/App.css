@@ -489,6 +489,12 @@
   cursor: pointer;
 }
 
+.admin-fields button:disabled,
+.admin-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .admin-login button {
   width: 100%;
   margin-top: 24px;

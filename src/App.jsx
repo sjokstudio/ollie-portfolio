@@ -697,6 +697,8 @@ function AdminPage() {
   const [posts, setPosts] = useState([])
   const [postForm, setPostForm] = useState(emptyPostForm)
   const [uploading, setUploading] = useState(false)
+  const [xPostUrl, setXPostUrl] = useState('')
+  const [importingXPost, setImportingXPost] = useState(false)
 
   const sortedPosts = useMemo(
     () => [...posts].sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || ''))),
@@ -774,6 +776,35 @@ function AdminPage() {
       setMessage('首页设置已保存。')
     } catch (settingsError) {
       setError(settingsError.message)
+    }
+  }
+
+  const importXPost = async (event) => {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+    setImportingXPost(true)
+
+    try {
+      const data = await fetchJson('/api/admin/import-x-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: xPostUrl }),
+      })
+      const draft = data.postDraft || {}
+      setPostForm({
+        ...emptyPostForm,
+        ...draft,
+        tags: Array.isArray(draft.tags) ? draft.tags.join(', ') : draft.tags || '',
+        status: 'draft',
+      })
+      setXPostUrl('')
+      setMessage('推文已导入为草稿，请检查正文后保存文章。')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (importError) {
+      setError(importError.message)
+    } finally {
+      setImportingXPost(false)
     }
   }
 
@@ -893,6 +924,26 @@ function AdminPage() {
               <button type="button" onClick={saveSettings}>保存首页设置</button>
             </div>
           </div>
+        </section>
+
+        <section className="admin-panel">
+          <div>
+            <h2>推文导入</h2>
+            <p>粘贴一条 X 推文链接，系统会生成文章草稿，再由你编辑发布。</p>
+          </div>
+          <form className="admin-fields" onSubmit={importXPost}>
+            <label>
+              X / Twitter 链接
+              <input
+                placeholder="https://x.com/ool69loo/status/..."
+                value={xPostUrl}
+                onChange={(event) => setXPostUrl(event.target.value)}
+              />
+            </label>
+            <button type="submit" disabled={importingXPost || !xPostUrl.trim()}>
+              {importingXPost ? '正在导入...' : '导入为草稿'}
+            </button>
+          </form>
         </section>
 
         <section className="admin-panel">
