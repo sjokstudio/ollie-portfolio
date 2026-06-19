@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import {
   ArrowUpRight,
   BadgeCheck,
@@ -109,6 +109,74 @@ const focusAreas = [
   { icon: Globe2, label: 'Nomad', sub: '自由生活' },
 ]
 
+const articleCategories = ['AI', 'Crypto', 'Music', 'Digital Nomad', 'Tools', 'Community']
+
+const emptyPostForm = {
+  id: '',
+  slug: '',
+  title: '',
+  category: 'AI',
+  excerpt: '',
+  cover: '',
+  body: '',
+  sourceUrl: '',
+  tags: '',
+  status: 'draft',
+}
+
+function normalizePost(post) {
+  if (!post) return null
+  return {
+    ...post,
+    sourceUrl: post.sourceUrl || post.source_url || '',
+    readTime: post.readTime || post.read_time || '3 min read',
+    body: post.body || (post.paragraphs ? post.paragraphs.join('\n\n') : ''),
+    tags: Array.isArray(post.tags) ? post.tags : String(post.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean),
+  }
+}
+
+async function fetchJson(path, options) {
+  const response = await fetch(path, options)
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed: ${response.status}`)
+  }
+  return data
+}
+
+function slugify(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function MarkdownContent({ body }) {
+  const blocks = String(body || '').split(/\n{2,}/).map((block) => block.trim()).filter(Boolean)
+
+  return (
+    <>
+      {blocks.map((block) => {
+        if (block.startsWith('### ')) return <h3 key={block}>{block.slice(4)}</h3>
+        if (block.startsWith('## ')) return <h2 key={block}>{block.slice(3)}</h2>
+        if (block.startsWith('# ')) return <h2 key={block}>{block.slice(2)}</h2>
+        if (block.startsWith('- ')) {
+          return (
+            <ul key={block}>
+              {block.split('\n').map((item) => (
+                <li key={item}>{item.replace(/^- /, '')}</li>
+              ))}
+            </ul>
+          )
+        }
+        return <p key={block}>{block}</p>
+      })}
+    </>
+  )
+}
+
 function MaskedLine({ children }) {
   return (
     <span className="mask-line">
@@ -151,6 +219,18 @@ function SiteHeader({ variant = 'overlay' }) {
 }
 
 function BlogIndex() {
+  const [posts, setPosts] = useState(blogPosts.map(normalizePost))
+
+  useEffect(() => {
+    fetchJson('/api/posts')
+      .then((data) => {
+        if (Array.isArray(data.posts)) setPosts(data.posts.map(normalizePost))
+      })
+      .catch(() => {
+        setPosts(blogPosts.map(normalizePost))
+      })
+  }, [])
+
   return (
     <main className="blog-page">
       <SiteHeader variant="static" />
@@ -163,7 +243,7 @@ function BlogIndex() {
       </section>
 
       <section className="blog-list page-shell" aria-label="Blog posts">
-        {blogPosts.map((post, index) => (
+        {posts.map((post, index) => (
           <a className="blog-card" href={`/blog/${post.slug}`} key={post.slug}>
             <span className="blog-index">0{index + 1}</span>
             <div className="blog-card-media">
@@ -174,7 +254,7 @@ function BlogIndex() {
               <h2>{post.title}</h2>
               <p>{post.excerpt}</p>
               <small>
-                {post.date} / {post.readTime}
+                {post.date || post.publishedAt || post.published_at || 'Draft'} / {post.readTime}
               </small>
             </div>
           </a>
@@ -184,7 +264,23 @@ function BlogIndex() {
   )
 }
 
-function BlogPost({ post }) {
+function BlogPost({ slug }) {
+  const staticPost = normalizePost(blogPosts.find((item) => item.slug === slug))
+  const [post, setPost] = useState(staticPost)
+  const [loading, setLoading] = useState(!staticPost)
+
+  useEffect(() => {
+    setLoading(true)
+    fetchJson(`/api/posts/${slug}`)
+      .then((data) => {
+        setPost(normalizePost(data.post))
+      })
+      .catch(() => {
+        setPost(staticPost)
+      })
+      .finally(() => setLoading(false))
+  }, [slug])
+
   if (!post) {
     return (
       <main className="blog-page">
@@ -192,7 +288,7 @@ function BlogPost({ post }) {
         <section className="blog-hero page-shell">
           <p className="section-eyebrow">404 / Not Found</p>
           <h1 className="blog-title">ARTICLE NOT FOUND</h1>
-          <p>这篇文章还没有发布，或者链接已经变更。</p>
+          <p>{loading ? '正在加载文章...' : '这篇文章还没有发布，或者链接已经变更。'}</p>
           <a className="inline-link" href="/blog">Back to Blog</a>
         </section>
       </main>
@@ -209,9 +305,9 @@ function BlogPost({ post }) {
           <h1>{post.title}</h1>
           <p>{post.excerpt}</p>
           <div className="article-meta">
-            <span>{post.date}</span>
+            <span>{post.date || post.publishedAt || post.published_at}</span>
             <span>{post.readTime}</span>
-            <a href={post.sourceUrl} target="_blank" rel="noreferrer">
+            <a href={post.sourceUrl || 'https://x.com/ool69loo'} target="_blank" rel="noreferrer">
               {post.source}
               <ArrowUpRight size={15} />
             </a>
@@ -223,9 +319,7 @@ function BlogPost({ post }) {
         </div>
 
         <div className="article-body">
-          {post.paragraphs.map((paragraph) => (
-            <p key={paragraph}>{paragraph}</p>
-          ))}
+          <MarkdownContent body={post.body} />
           <div className="article-tags">
             {post.tags.map((tag) => (
               <span key={tag}>{tag}</span>
@@ -238,6 +332,14 @@ function BlogPost({ post }) {
 }
 
 function HomePage() {
+  const [siteSettings, setSiteSettings] = useState({})
+
+  useEffect(() => {
+    fetchJson('/api/site-settings')
+      .then((data) => setSiteSettings(data.settings || {}))
+      .catch(() => setSiteSettings({}))
+  }, [])
+
   useLayoutEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -382,8 +484,14 @@ function HomePage() {
       </div>
 
       <section className="hero-section" id="top">
+        {siteSettings.heroBackgroundUrl ? (
+          <div
+            className="hero-background-image"
+            style={{ backgroundImage: `url(${siteSettings.heroBackgroundUrl})` }}
+          />
+        ) : null}
         <video
-          className="hero-video"
+          className={`hero-video ${siteSettings.heroBackgroundUrl ? 'hero-video-muted' : ''}`}
           src="https://samplelib.com/preview/mp4/sample-5s.mp4"
           poster="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=85"
           autoPlay
@@ -579,8 +687,300 @@ function HomePage() {
   )
 }
 
+function AdminPage() {
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [settings, setSettings] = useState({})
+  const [posts, setPosts] = useState([])
+  const [postForm, setPostForm] = useState(emptyPostForm)
+  const [uploading, setUploading] = useState(false)
+
+  const sortedPosts = useMemo(
+    () => [...posts].sort((a, b) => String(b.updatedAt || b.updated_at || '').localeCompare(String(a.updatedAt || a.updated_at || ''))),
+    [posts],
+  )
+
+  const loadAdminData = async () => {
+    const [settingsData, postsData] = await Promise.all([
+      fetchJson('/api/site-settings'),
+      fetchJson('/api/admin/posts'),
+    ])
+    setSettings(settingsData.settings || {})
+    setPosts((postsData.posts || []).map(normalizePost))
+  }
+
+  useEffect(() => {
+    loadAdminData()
+      .then(() => setLoggedIn(true))
+      .catch(() => setLoggedIn(false))
+      .finally(() => setChecking(false))
+  }, [])
+
+  const handleLogin = async (event) => {
+    event.preventDefault()
+    setError('')
+    try {
+      await fetchJson('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm),
+      })
+      await loadAdminData()
+      setLoggedIn(true)
+    } catch (loginError) {
+      setError(loginError.message)
+    }
+  }
+
+  const handleLogout = async () => {
+    await fetchJson('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    setLoggedIn(false)
+  }
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const data = await fetchJson('/api/admin/uploads', {
+        method: 'POST',
+        body: formData,
+      })
+      setSettings((current) => ({ ...current, heroBackgroundUrl: data.url }))
+      setMessage('图片上传成功，记得点击保存首页设置。')
+    } catch (uploadError) {
+      setError(uploadError.message)
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  const saveSettings = async () => {
+    setError('')
+    try {
+      const data = await fetchJson('/api/admin/site-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings }),
+      })
+      setSettings(data.settings || settings)
+      setMessage('首页设置已保存。')
+    } catch (settingsError) {
+      setError(settingsError.message)
+    }
+  }
+
+  const editPost = (post) => {
+    setPostForm({
+      id: post.id || '',
+      slug: post.slug || '',
+      title: post.title || '',
+      category: post.category || 'AI',
+      excerpt: post.excerpt || '',
+      cover: post.cover || '',
+      body: post.body || '',
+      sourceUrl: post.sourceUrl || '',
+      tags: (post.tags || []).join(', '),
+      status: post.status || 'draft',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const savePost = async (event) => {
+    event.preventDefault()
+    setError('')
+    const payload = {
+      ...postForm,
+      slug: postForm.slug || slugify(postForm.title),
+      tags: postForm.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+    }
+
+    try {
+      const data = await fetchJson(postForm.id ? `/api/admin/posts/${postForm.id}` : '/api/admin/posts', {
+        method: postForm.id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      setPostForm(emptyPostForm)
+      setMessage(postForm.id ? '文章已更新。' : '文章已创建。')
+      setPosts((current) => {
+        const nextPost = normalizePost(data.post)
+        const exists = current.some((post) => post.id === nextPost.id)
+        return exists ? current.map((post) => (post.id === nextPost.id ? nextPost : post)) : [nextPost, ...current]
+      })
+    } catch (postError) {
+      setError(postError.message)
+    }
+  }
+
+  const deletePost = async (post) => {
+    if (!window.confirm(`删除文章「${post.title}」？`)) return
+    setError('')
+    try {
+      await fetchJson(`/api/admin/posts/${post.id}`, { method: 'DELETE' })
+      setPosts((current) => current.filter((item) => item.id !== post.id))
+      if (postForm.id === post.id) setPostForm(emptyPostForm)
+      setMessage('文章已删除。')
+    } catch (deleteError) {
+      setError(deleteError.message)
+    }
+  }
+
+  if (checking) {
+    return <main className="admin-page"><div className="admin-shell">正在检查登录状态...</div></main>
+  }
+
+  if (!loggedIn) {
+    return (
+      <main className="admin-page">
+        <form className="admin-login" onSubmit={handleLogin}>
+          <span>Ollie Admin</span>
+          <h1>登录后台</h1>
+          <label>
+            账号
+            <input value={loginForm.username} onChange={(event) => setLoginForm({ ...loginForm, username: event.target.value })} />
+          </label>
+          <label>
+            密码
+            <input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} />
+          </label>
+          {error ? <p className="admin-error">{error}</p> : null}
+          <button type="submit">登录</button>
+        </form>
+      </main>
+    )
+  }
+
+  return (
+    <main className="admin-page">
+      <div className="admin-shell">
+        <header className="admin-header">
+          <div>
+            <span>Ollie Admin</span>
+            <h1>内容后台</h1>
+          </div>
+          <button type="button" onClick={handleLogout}>退出登录</button>
+        </header>
+
+        {message ? <p className="admin-message">{message}</p> : null}
+        {error ? <p className="admin-error">{error}</p> : null}
+
+        <section className="admin-panel">
+          <div>
+            <h2>首页背景</h2>
+            <p>上传 jpg、png 或 webp 图片，保存后首页会即时读取新背景。</p>
+          </div>
+          <div className="admin-upload-grid">
+            <div className="admin-preview" style={{ backgroundImage: settings.heroBackgroundUrl ? `url(${settings.heroBackgroundUrl})` : undefined }}>
+              {!settings.heroBackgroundUrl ? '暂无自定义背景' : null}
+            </div>
+            <div className="admin-fields">
+              <label>
+                背景图片 URL
+                <input value={settings.heroBackgroundUrl || ''} onChange={(event) => setSettings({ ...settings, heroBackgroundUrl: event.target.value })} />
+              </label>
+              <label>
+                上传图片
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleUpload} disabled={uploading} />
+              </label>
+              <button type="button" onClick={saveSettings}>保存首页设置</button>
+            </div>
+          </div>
+        </section>
+
+        <section className="admin-panel">
+          <div>
+            <h2>{postForm.id ? '编辑文章' : '新建文章'}</h2>
+            <p>选择分类板块，状态设为 Published 后会显示在博客前台。</p>
+          </div>
+          <form className="admin-post-form" onSubmit={savePost}>
+            <label>
+              标题
+              <input value={postForm.title} onChange={(event) => setPostForm({ ...postForm, title: event.target.value, slug: postForm.slug || slugify(event.target.value) })} required />
+            </label>
+            <label>
+              Slug
+              <input value={postForm.slug} onChange={(event) => setPostForm({ ...postForm, slug: slugify(event.target.value) })} required />
+            </label>
+            <label>
+              分类
+              <select value={postForm.category} onChange={(event) => setPostForm({ ...postForm, category: event.target.value })}>
+                {articleCategories.map((category) => <option key={category}>{category}</option>)}
+              </select>
+            </label>
+            <label>
+              状态
+              <select value={postForm.status} onChange={(event) => setPostForm({ ...postForm, status: event.target.value })}>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+              </select>
+            </label>
+            <label className="admin-wide">
+              摘要
+              <textarea value={postForm.excerpt} onChange={(event) => setPostForm({ ...postForm, excerpt: event.target.value })} required />
+            </label>
+            <label>
+              封面图 URL
+              <input value={postForm.cover} onChange={(event) => setPostForm({ ...postForm, cover: event.target.value })} />
+            </label>
+            <label>
+              来源链接
+              <input value={postForm.sourceUrl} onChange={(event) => setPostForm({ ...postForm, sourceUrl: event.target.value })} />
+            </label>
+            <label className="admin-wide">
+              标签，用英文逗号分隔
+              <input value={postForm.tags} onChange={(event) => setPostForm({ ...postForm, tags: event.target.value })} />
+            </label>
+            <label className="admin-wide">
+              正文 Markdown
+              <textarea className="admin-body-editor" value={postForm.body} onChange={(event) => setPostForm({ ...postForm, body: event.target.value })} required />
+            </label>
+            <div className="admin-actions">
+              <button type="submit">{postForm.id ? '保存文章' : '创建文章'}</button>
+              <button type="button" onClick={() => setPostForm(emptyPostForm)}>清空表单</button>
+            </div>
+          </form>
+        </section>
+
+        <section className="admin-panel">
+          <div>
+            <h2>文章列表</h2>
+            <p>当前共 {posts.length} 篇文章。</p>
+          </div>
+          <div className="admin-post-list">
+            {sortedPosts.map((post) => (
+              <article key={post.id || post.slug}>
+                <div>
+                  <span>{post.category} / {post.status}</span>
+                  <h3>{post.title}</h3>
+                  <p>{post.slug}</p>
+                </div>
+                <div>
+                  <button type="button" onClick={() => editPost(post)}>编辑</button>
+                  <button type="button" onClick={() => deletePost(post)}>删除</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
+
 function App() {
   const path = window.location.pathname
+
+  if (path === '/admin' || path === '/admin/') {
+    return <AdminPage />
+  }
 
   if (path === '/blog' || path === '/blog/') {
     return <BlogIndex />
@@ -588,7 +988,7 @@ function App() {
 
   if (path.startsWith('/blog/')) {
     const slug = path.replace('/blog/', '').replace(/\/$/, '')
-    return <BlogPost post={blogPosts.find((post) => post.slug === slug)} />
+    return <BlogPost slug={slug} />
   }
 
   return <HomePage />
