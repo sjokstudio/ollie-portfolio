@@ -153,6 +153,23 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '')
 }
 
+function hasCover(post) {
+  return Boolean(String(post?.cover || '').trim())
+}
+
+function linkifyText(text) {
+  const parts = String(text || '').split(/(https?:\/\/[^\s]+)/g)
+
+  return parts.map((part, index) => {
+    if (!/^https?:\/\//.test(part)) return part
+    return (
+      <a href={part} target="_blank" rel="noreferrer" key={`${part}-${index}`}>
+        {part}
+      </a>
+    )
+  })
+}
+
 function MarkdownContent({ body }) {
   const blocks = String(body || '').split(/\n{2,}/).map((block) => block.trim()).filter(Boolean)
 
@@ -165,13 +182,26 @@ function MarkdownContent({ body }) {
         if (block.startsWith('- ')) {
           return (
             <ul key={block}>
-              {block.split('\n').map((item) => (
-                <li key={item}>{item.replace(/^- /, '')}</li>
+              {block.split('\n').map((item, index) => (
+                <li key={`${item}-${index}`}>{linkifyText(item.replace(/^- /, ''))}</li>
               ))}
             </ul>
           )
         }
-        return <p key={block}>{block}</p>
+        const numberedLines = block.split('\n')
+        const isNumberedNote = numberedLines.length > 2 && numberedLines.some((line) => /^[0-9]+[️⃣.、)]\s*/.test(line.trim()))
+
+        if (isNumberedNote) {
+          return (
+            <div className="article-note-block" key={block}>
+              {numberedLines.map((line, index) => (
+                <p key={`${line}-${index}`}>{linkifyText(line)}</p>
+              ))}
+            </div>
+          )
+        }
+
+        return <p key={block}>{linkifyText(block)}</p>
       })}
     </>
   )
@@ -244,11 +274,13 @@ function BlogIndex() {
 
       <section className="blog-list page-shell" aria-label="Blog posts">
         {posts.map((post, index) => (
-          <a className="blog-card" href={`/blog/${post.slug}`} key={post.slug}>
+          <a className={`blog-card ${hasCover(post) ? 'blog-card-with-media' : 'blog-card-text'}`} href={`/blog/${post.slug}`} key={post.slug}>
             <span className="blog-index">0{index + 1}</span>
-            <div className="blog-card-media">
-              <img src={post.cover} alt="" />
-            </div>
+            {hasCover(post) ? (
+              <div className="blog-card-media">
+                <img src={post.cover} alt="" />
+              </div>
+            ) : null}
             <div className="blog-card-copy">
               <span>{post.kicker}</span>
               <h2>{post.title}</h2>
@@ -298,7 +330,7 @@ function BlogPost({ slug }) {
   return (
     <main className="blog-page">
       <SiteHeader variant="static" />
-      <article className="article-shell page-shell">
+      <article className={`article-shell page-shell ${hasCover(post) ? 'article-with-cover' : 'article-no-cover'}`}>
         <div className="article-header">
           <a className="inline-link" href="/blog">Back to Blog</a>
           <p className="section-eyebrow">{post.kicker}</p>
@@ -314,9 +346,11 @@ function BlogPost({ slug }) {
           </div>
         </div>
 
-        <div className="article-cover">
-          <img src={post.cover} alt="" />
-        </div>
+        {hasCover(post) ? (
+          <div className="article-cover">
+            <img src={post.cover} alt="" />
+          </div>
+        ) : null}
 
         <div className="article-body">
           <MarkdownContent body={post.body} />
@@ -801,7 +835,7 @@ function AdminPage() {
       })
       setXPostUrl('')
       setXPostText('')
-      setMessage('推文已导入为草稿，请检查正文后保存文章。')
+      setMessage('推文已填入文章表单，但还没有保存入库。检查正文后点击「创建文章」，需要前台显示就把状态改为「发布」。')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (importError) {
       setError(importError.message)
@@ -960,7 +994,7 @@ function AdminPage() {
         <section className="admin-panel">
           <div>
             <h2>{postForm.id ? '编辑文章' : '新建文章'}</h2>
-            <p>选择分类板块，状态设为 Published 后会显示在博客前台。</p>
+            <p>选择分类板块，状态设为「发布」后才会显示在博客前台。</p>
           </div>
           <form className="admin-post-form" onSubmit={savePost}>
             <label>
@@ -980,8 +1014,8 @@ function AdminPage() {
             <label>
               状态
               <select value={postForm.status} onChange={(event) => setPostForm({ ...postForm, status: event.target.value })}>
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
+                <option value="draft">草稿 - 仅后台可见</option>
+                <option value="published">发布 - 前台可见</option>
               </select>
             </label>
             <label className="admin-wide">
@@ -1020,7 +1054,7 @@ function AdminPage() {
             {sortedPosts.map((post) => (
               <article key={post.id || post.slug}>
                 <div>
-                  <span>{post.category} / {post.status}</span>
+                  <span>{post.category} / {post.status === 'published' ? '已发布，前台可见' : '草稿，前台不可见'}</span>
                   <h3>{post.title}</h3>
                   <p>{post.slug}</p>
                 </div>
