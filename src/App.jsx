@@ -542,8 +542,6 @@ function HomePage() {
             <p className="hero-kicker">AI / CRYPTO / MUSIC / 数字难民</p>
             <h1 className="hero-title">
               <MaskedLine>OLLIE</MaskedLine>
-              <MaskedLine>INFORMATION</MaskedLine>
-              <MaskedLine>ALCHEMIST</MaskedLine>
             </h1>
             <p className="hero-copy">
               一名推特上的博主，在信息的洪流里搭建自己的系统，用 AI、Crypto 和音乐，寻找自由与秩序的边界。
@@ -676,8 +674,8 @@ function HomePage() {
           <div className="contact-main">
             <p className="section-eyebrow">Contact / Philosophy</p>
             <h2 className="final-title">
-              <MaskedLine>INFORMATION</MaskedLine>
-              <MaskedLine>FREEDOM.</MaskedLine>
+              <MaskedLine>LET'S</MaskedLine>
+              <MaskedLine>TALK.</MaskedLine>
             </h2>
             <p className="philosophy">信息自由，思想独立，数字游牧，创造价值。</p>
             <div className="contact-actions">
