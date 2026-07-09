@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  /* Brand DNA Colors */
+  --color-brand-blue: #2B7FD8;
+  --color-brand-yellow: #F4D758;
+  --color-brand-red: #E84A5F;
+  
+  /* OS Colors (No pure blacks) */
+  --color-os-bg: #0d1117;
+  --color-os-panel: rgba(21, 24, 33, 0.95);
+  --color-os-border: rgba(250, 246, 235, 0.1);
+  --color-terminal-green: #4ade80;
+  
+  --color-cubase-bg: #151821;
+  --color-cubase-panel: #1c212b;
+  
+  /* Fonts */
+  --font-sans: var(--font-noto-sans);
+  --font-serif: var(--font-fraunces);
+  --font-hand: var(--font-caveat);
+  --font-mono: var(--font-fira-code);
+}
+
+:root {
+  --background: #0d1117;
+  --foreground: #faf6eb;
+  
+  --terminal-bg: #0f1115;
+  --terminal-text: #4ade80;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(250, 246, 235, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(250, 246, 235, 0.3);
+}
+
+/* Panel utilities */
+.os-panel {
+  background: var(--color-os-panel);
+  border: 1px solid var(--color-brand-blue);
+  box-shadow: 0 4px 20px rgba(43, 127, 216, 0.1);
+}
+
+/* Typography styles */
+.text-serif {
+  font-family: var(--font-serif), serif;
+}
+
+.text-hand {
+  font-family: var(--font-hand), cursive;
+}
+
+.terminal-text {
+  font-family: var(--font-mono);
+  color: var(--terminal-text);
+  text-shadow: 0 0 5px rgba(74, 222, 128, 0.3);
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* ── Animations ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: var(--op, 0.6); }
+  50% { opacity: calc(var(--op, 0.6) * 0.2); }
+}
+
+@keyframes starWobble {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  25% { transform: rotate(10deg) translateX(2px); }
+  75% { transform: rotate(-10deg) translateX(-2px); }
+}
+
+@keyframes starPop {
+  0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0.9; }
+  30% { transform: translate(-50%, -50%) scale(1.3) rotate(12deg); opacity: 0.85; }
+  70% { transform: translate(-50%, -50%) scale(1) rotate(-4deg); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(0.7) rotate(0deg); opacity: 0; }
+}
+
+@keyframes winPop {
+  from { transform: scale(0.91) translateY(8px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Navigation Pill */
+.nav-pill-container {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  transition: all 0.3s ease;
+}
+
+/* Transition Overlays */
+.overlay-flash {
+  position: fixed;
+  inset: 0;
+  background-color: #0d1117;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.overlay-flash.active {
+  opacity: 1;
+}
+
+/* Canvas Selection Highlighting */
+::selection { 
+  background: var(--color-brand-yellow); 
+  color: #1a1a1a; 
+}
