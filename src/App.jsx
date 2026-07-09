@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import heroArt from './assets/hero.png'
 import { blogPosts } from './content/blogPosts'
 import './App.css'
 
@@ -402,7 +403,6 @@ function HomePage() {
         clipPath: 'inset(26% 18% 20% 18%)',
         scale: 1.12,
       })
-      gsap.set('.hero-mark', { scale: 0.5, autoAlpha: 0, rotate: -10 })
 
       const opening = gsap.timeline({ defaults: { ease: 'power4.out' } })
       opening
@@ -427,7 +427,6 @@ function HomePage() {
           '-=0.22',
         )
         .to('.hero-visual, .hero-stat', { autoAlpha: 1, clipPath: 'inset(0% 0% 0% 0%)', scale: 1, duration: 1.2, stagger: 0.08 }, '-=1')
-        .to('.hero-mark', { scale: 1, autoAlpha: 1, rotate: 0, duration: 1.1 }, '-=0.95')
         .to('.hero-copy, .hero-meta, .hero-note', { autoAlpha: 1, y: 0, duration: 0.9, stagger: 0.1 }, '-=0.72')
 
       gsap.to('.hero-video', {
@@ -555,7 +554,7 @@ function HomePage() {
 
           <div className="hero-dossier">
             <div className="hero-visual" aria-label="Ollie visual identity">
-              <div className="hero-mark" />
+              <img src={heroArt} alt="Ollie visual identity" />
             </div>
             <div className="hero-note">
               <span>What people will remember</span>
