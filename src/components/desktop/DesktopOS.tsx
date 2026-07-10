@@ -17,7 +17,7 @@ import {
 export interface WindowDef {
   id: string;
   title: string;
-  type: "about" | "music" | "ai" | "terminal" | "note" | "calendar" | "memo" | "weather" | "clock" | "calculator" | "photos" | "settings" | "trash" | "now" | "signal" | "links" | "folder" | "localNote";
+  type: "about" | "music" | "ai" | "terminal" | "note" | "calendar" | "memo" | "weather" | "clock" | "calculator" | "photos" | "settings" | "trash" | "now" | "signal" | "links" | "market" | "folder" | "localNote";
   zIndex: number;
   minimized?: boolean;
   x: number; y: number; w: number; h: number;
@@ -351,14 +351,32 @@ function AboutWindow() {
 function MusicWindow({ tracks, onChange }: { tracks: MusicTrack[]; onChange: (tracks: MusicTrack[]) => void }) {
   const [cur, setCur]   = useState(0);
   const [editing, setEditing] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const t = tracks[cur];
   const updateTrack = (patch: Partial<MusicTrack>) => onChange(tracks.map((track, index) => index === cur ? { ...track, ...patch } : track));
+  const loadAudio = (file: File) => {
+    if (audioRef.current) audioRef.current.pause();
+    updateTrack({ audioUrl: URL.createObjectURL(file), subtitle: t.subtitle === "等待导入第一首夜行音乐" || t.subtitle === "等待导入第二首夜行音乐" ? file.name : t.subtitle });
+    setPlaying(false);
+  };
+  const togglePlayback = async () => {
+    if (!audioRef.current || !t.audioUrl) return;
+    if (audioRef.current.paused) {
+      await audioRef.current.play();
+      setPlaying(true);
+    } else {
+      audioRef.current.pause();
+      setPlaying(false);
+    }
+  };
   return (
     <div style={{ background: "#151821", color: "#faf6eb", height: "100%", display: "flex", flexDirection: "column", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
       <div style={{ flex: "0 0 160px", background: `linear-gradient(135deg,${t.color},#2B7FD8,#151821)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", fontSize: 60 }}>
         🎵
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 40, background: "linear-gradient(transparent,#151821)" }} />
       </div>
+      <audio ref={audioRef} src={t.audioUrl} onEnded={() => setPlaying(false)} />
       <div style={{ padding: "16px 22px 10px", textAlign: "center" }}>
         {editing ? <><input aria-label="曲目名称" value={t.title} onChange={e => updateTrack({ title: e.target.value })} style={{ width: "100%", background: "#222836", color: "#fff", border: "1px solid #46506a", borderRadius: 6, padding: "5px 8px", textAlign: "center" }} /><input aria-label="曲目说明" value={t.subtitle} onChange={e => updateTrack({ subtitle: e.target.value })} style={{ width: "100%", marginTop: 7, background: "#222836", color: "#c4c8d0", border: "1px solid #46506a", borderRadius: 6, padding: "5px 8px", textAlign: "center", fontSize: 11 }} /></> : <><div style={{ fontFamily: "var(--font-fraunces)", fontSize: 18, fontWeight: 900 }}>{t.title}</div><div style={{ fontSize: 11, color: "#8A8A9A", fontFamily: "monospace", marginTop: 3 }}>{t.subtitle}</div></>}
         <button onClick={() => setEditing(v => !v)} style={{ marginTop: 10, background: "transparent", border: "1px solid #3b4357", borderRadius: 999, color: "#cbd2df", padding: "4px 9px", cursor: "pointer", fontSize: 10 }}>{editing ? "完成编辑" : "编辑曲目"}</button>
@@ -373,7 +391,7 @@ function MusicWindow({ tracks, onChange }: { tracks: MusicTrack[]; onChange: (tr
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 18, paddingBottom: 18 }}>
         <button onClick={() => { setCur(c => (c - 1 + tracks.length) % tracks.length); }} style={{ background: "none", border: "none", color: "#faf6eb", fontSize: 18, cursor: "pointer", opacity: 0.7 }}>⏮</button>
-        <button onClick={() => setEditing(v => !v)} aria-label="编辑当前曲目" style={{ width: 44, height: 44, borderRadius: "50%", background: "#F4D758", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#1A1A2E" }}>✎</button>
+        <button onClick={togglePlayback} aria-label={t.audioUrl ? (playing ? "暂停当前曲目" : "播放当前曲目") : "当前曲目等待导入"} style={{ width: 44, height: 44, borderRadius: "50%", background: t.audioUrl ? "#F4D758" : "#3b4357", border: "none", cursor: t.audioUrl ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#1A1A2E" }}>{playing ? "Ⅱ" : "▶"}</button>
         <button onClick={() => { setCur(c => (c + 1) % tracks.length); }} style={{ background: "none", border: "none", color: "#faf6eb", fontSize: 18, cursor: "pointer", opacity: 0.7 }}>⏭</button>
       </div>
       <div style={{ flex: 1, overflow: "auto", borderTop: "1px solid #222836" }}>
@@ -386,8 +404,146 @@ function MusicWindow({ tracks, onChange }: { tracks: MusicTrack[]; onChange: (tr
           </div>
         ))}
       </div>
+      <div style={{ borderTop: "1px solid #222836", padding: "10px 18px 14px", background: "#11141b" }}>
+        <label style={{ display: "block", border: "1px dashed #46506a", borderRadius: 8, padding: "9px 10px", color: "#cbd2df", fontSize: 11, cursor: "pointer", textAlign: "center" }}>
+          导入当前曲目音频
+          <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/*" onChange={e => { const file = e.target.files?.[0]; if (file) loadAudio(file); e.currentTarget.value = ""; }} style={{ display: "none" }} />
+        </label>
+        <div style={{ marginTop: 6, color: "#6f7788", fontSize: 9, lineHeight: 1.5 }}>音频只保存在当前浏览器会话中。正式替换时，把文件交给我放进网站资源。</div>
+      </div>
     </div>
   );
+}
+
+type MarketCandle = { time: number; open: number; high: number; low: number; close: number };
+type BtcMarket = {
+  symbol: string;
+  price: number;
+  change24h: number;
+  high24h: number;
+  low24h: number;
+  candles: MarketCandle[];
+  updatedAt: string;
+  source: string;
+};
+type KrakenCandle = [number, string, string, string, string, string, string, number];
+
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(value);
+}
+
+function BtcChart({ candles }: { candles: MarketCandle[] }) {
+  const width = 520;
+  const height = 204;
+  const padding = { top: 12, right: 10, bottom: 18, left: 10 };
+  const high = Math.max(...candles.map(candle => candle.high));
+  const low = Math.min(...candles.map(candle => candle.low));
+  const range = Math.max(high - low, 1);
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const step = innerWidth / Math.max(candles.length, 1);
+  const candleWidth = Math.max(2, Math.min(8, step * 0.58));
+  const y = (price: number) => padding.top + ((high - price) / range) * innerHeight;
+
+  return <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="比特币美元一小时 K 线图" style={{ display: "block", width: "100%", height: 204, overflow: "visible" }}>
+    {[0.2, 0.5, 0.8].map(point => <line key={point} x1={padding.left} x2={width - padding.right} y1={padding.top + innerHeight * point} y2={padding.top + innerHeight * point} stroke="rgba(202,220,242,0.12)" strokeWidth="1" strokeDasharray="3 5" />)}
+    {candles.map((candle, index) => {
+      const rising = candle.close >= candle.open;
+      const color = rising ? "#42d392" : "#f37477";
+      const x = padding.left + index * step + step / 2;
+      const bodyTop = y(Math.max(candle.open, candle.close));
+      const bodyBottom = y(Math.min(candle.open, candle.close));
+      return <g key={candle.time}>
+        <line x1={x} x2={x} y1={y(candle.high)} y2={y(candle.low)} stroke={color} strokeWidth="1.15" opacity="0.92" />
+        <rect x={x - candleWidth / 2} y={bodyTop} width={candleWidth} height={Math.max(1.5, bodyBottom - bodyTop)} rx="0.8" fill={color} />
+      </g>;
+    })}
+    <text x={padding.left} y={height - 3} fill="rgba(202,220,242,0.58)" fontSize="9" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">36H</text>
+    <text x={width - padding.right} y={height - 3} textAnchor="end" fill="rgba(202,220,242,0.58)" fontSize="9" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">NOW</text>
+  </svg>;
+}
+
+function BtcMarketWindow() {
+  const [market, setMarket] = useState<BtcMarket | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadMarket = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=60", { cache: "no-store" });
+      if (!response.ok) throw new Error("行情服务暂时不可用");
+      const payload = await response.json() as { error: string[]; result: Record<string, KrakenCandle[] | number> };
+      if (payload.error.length) throw new Error(payload.error.join(", "));
+      const pairKey = Object.keys(payload.result).find(key => key !== "last");
+      const rawCandles = pairKey ? payload.result[pairKey] : undefined;
+      if (!Array.isArray(rawCandles) || rawCandles.length < 24) throw new Error("行情数据不足");
+      const candles = rawCandles.slice(-36).map(([time, open, high, low, close]) => ({
+        time: time * 1000,
+        open: Number(open),
+        high: Number(high),
+        low: Number(low),
+        close: Number(close),
+      }));
+      const last24h = candles.slice(-24);
+      const first = last24h[0];
+      const latest = candles.at(-1)!;
+      setMarket({
+        symbol: "BTC/USD",
+        price: latest.close,
+        change24h: ((latest.close - first.open) / first.open) * 100,
+        high24h: Math.max(...last24h.map(candle => candle.high)),
+        low24h: Math.min(...last24h.map(candle => candle.low)),
+        candles,
+        updatedAt: new Date().toISOString(),
+        source: "Kraken public market data",
+      });
+      setError(null);
+    } catch {
+      setError("暂时无法读取实时行情，请稍后重试。");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMarket();
+    const timer = window.setInterval(() => void loadMarket(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadMarket]);
+
+  const positive = (market?.change24h ?? 0) >= 0;
+  const statusColor = positive ? "#42d392" : "#f37477";
+
+  return <div style={{ minHeight: "100%", background: "#111722", color: "#edf4ff", padding: 18, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+      <div>
+        <div style={{ color: "#f4d758", fontSize: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: "0.13em" }}>MARKET / LIVE</div>
+        <h2 style={{ margin: "4px 0 0", fontSize: 22, letterSpacing: "-0.03em" }}>Bitcoin</h2>
+      </div>
+      <button onClick={() => void loadMarket()} disabled={loading} aria-label="刷新比特币行情" style={{ minWidth: 44, height: 32, border: "1px solid rgba(237,244,255,0.18)", borderRadius: 8, background: loading ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.09)", color: "#edf4ff", cursor: loading ? "wait" : "pointer", fontSize: 14, transition: "transform 160ms ease, background 160ms ease" }}>↻</button>
+    </div>
+
+    {error ? <div role="alert" style={{ marginTop: 24, padding: 14, border: "1px solid rgba(243,116,119,0.42)", borderRadius: 10, color: "#ffc4c6", background: "rgba(243,116,119,0.1)", fontSize: 13, lineHeight: 1.55 }}>{error}<button onClick={() => void loadMarket()} style={{ display: "block", marginTop: 10, border: "none", background: "#f4d758", color: "#111722", borderRadius: 6, padding: "7px 10px", fontWeight: 700, cursor: "pointer" }}>重新连接</button></div> : <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18 }}>
+        <div>
+          <div style={{ color: "rgba(237,244,255,0.55)", fontSize: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>BTC / USD</div>
+          <div style={{ marginTop: 3, fontSize: 30, fontWeight: 760, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.04em" }}>{market ? `$${formatPrice(market.price)}` : "--"}</div>
+        </div>
+        <div style={{ color: statusColor, fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{market ? `${positive ? "+" : ""}${market.change24h.toFixed(2)}%` : "--"}<div style={{ marginTop: 3, fontSize: 9, fontWeight: 500, color: "rgba(237,244,255,0.48)", textAlign: "right" }}>24H</div></div>
+      </div>
+
+      <div style={{ marginTop: 16, minHeight: 204, border: "1px solid rgba(202,220,242,0.12)", borderRadius: 10, padding: "4px 6px", background: "linear-gradient(180deg, rgba(57,78,112,0.2), rgba(17,23,34,0))" }}>
+        {market ? <BtcChart candles={market.candles} /> : <div style={{ height: 204, display: "grid", placeItems: "center", color: "rgba(237,244,255,0.48)", fontSize: 12 }}>正在读取 K 线...</div>}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 12 }}>
+        <div style={{ padding: "10px 11px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H HIGH</div><strong style={{ display: "block", marginTop: 4, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.high24h)}` : "--"}</strong></div>
+        <div style={{ padding: "10px 11px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H LOW</div><strong style={{ display: "block", marginTop: 4, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.low24h)}` : "--"}</strong></div>
+      </div>
+      <div style={{ marginTop: 12, fontSize: 9, color: "rgba(237,244,255,0.48)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{market ? `${market.source} · ${new Date(market.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · 1H candles` : ""}</div>
+    </>}
+  </div>;
 }
 
 function TerminalWindow() {
@@ -746,24 +902,30 @@ function PetEl({ pos, motionOn, onMove }: { pos: { x: number; y: number }; motio
       style={{
         position: "absolute", bottom: 64, right: "12%",
         transform: `translate(${pos.x}px,${pos.y}px)`,
-        cursor: "grab", userSelect: "none", zIndex: 60, touchAction: "none", width: 132,
+        cursor: "grab", userSelect: "none", zIndex: 12000, touchAction: "none", width: 154,
       }}
     >
       <div style={{ position: "absolute", right: -6, top: -38, maxWidth: 142, padding: "7px 10px", borderRadius: 14, background: "rgba(255,255,255,0.92)", color: "#1A1A2E", fontSize: 10, lineHeight: 1.4, boxShadow: "0 5px 18px rgba(0,0,0,0.14)", opacity: 0.94 }}>{message}</div>
-      <svg viewBox="0 0 150 150" width="132" height="132" aria-hidden="true" style={{ filter: "drop-shadow(0 12px 12px rgba(0,0,0,0.24))", transform: jump ? "translateY(-15px) scale(1.06)" : "none", transition: "transform 180ms cubic-bezier(.2,.9,.3,1)", animation: motionOn ? "ollieDogBreathe 3s ease-in-out infinite" : "none" }}>
+      <svg viewBox="0 0 150 150" width="154" height="154" aria-hidden="true" style={{ overflow: "visible", filter: "drop-shadow(0 12px 12px rgba(0,0,0,0.24))", transform: jump ? "translateY(-15px) scale(1.06)" : "none", transition: "transform 180ms cubic-bezier(.2,.9,.3,1)" }}>
         <g className={motionOn ? "ollie-dog-tail" : undefined} style={{ transformOrigin: "116px 105px" }}>
           <path d="M112 100c22-22 32-2 20 10-6 7-12 11-20 12" fill="#e9c99a" stroke="#5e4636" strokeWidth="4" strokeLinecap="round" />
         </g>
         <ellipse cx="76" cy="126" rx="45" ry="9" fill="rgba(18,40,77,0.22)" />
-        <path d="M42 64 31 30c-2-8 6-12 12-6l21 24M105 57l15-30c4-8 14-4 13 5l-4 34" fill="#e9c99a" stroke="#5e4636" strokeWidth="4" strokeLinejoin="round" />
-        <path d="M38 80c0-29 16-46 39-46 24 0 40 18 40 47v27c0 17-16 26-39 26s-40-9-40-26Z" fill="#f9e8c9" stroke="#5e4636" strokeWidth="4" strokeLinejoin="round" />
-        <path d="M43 54c9-13 19-18 34-18 18 0 30 7 37 19-9-3-18-3-28 1-16 6-29 5-43-2Z" fill="#fff7e8" />
-        <ellipse cx="61" cy="82" rx="5" ry={motionOn ? 5 : 1.5} fill="#1a2635" />
-        <ellipse cx="94" cy="82" rx="5" ry={motionOn ? 5 : 1.5} fill="#1a2635" />
-        <circle cx="74" cy="96" r="7" fill="#42332c" />
-        <path d="M66 105c5 5 13 5 18 0" fill="none" stroke="#5e4636" strokeWidth="3" strokeLinecap="round" />
-        <path d="M49 110c-7 13-9 22-4 28M104 110c7 13 9 22 4 28" fill="none" stroke="#e9c99a" strokeWidth="10" strokeLinecap="round" />
-        <path d="M48 116c14 12 41 13 58 0l-4 18c-13 6-35 6-50 0Z" fill="#2B7FD8" stroke="#1E5BA8" strokeWidth="3" />
+        <g className={motionOn ? "ollie-dog-ears" : undefined}>
+          <path d="M42 64 31 30c-2-8 6-12 12-6l21 24M105 57l15-30c4-8 14-4 13 5l-4 34" fill="#e9c99a" stroke="#5e4636" strokeWidth="4" strokeLinejoin="round" />
+        </g>
+        <g className={motionOn ? "ollie-dog-body" : undefined}>
+          <path d="M38 80c0-29 16-46 39-46 24 0 40 18 40 47v27c0 17-16 26-39 26s-40-9-40-26Z" fill="#f9e8c9" stroke="#5e4636" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M43 54c9-13 19-18 34-18 18 0 30 7 37 19-9-3-18-3-28 1-16 6-29 5-43-2Z" fill="#fff7e8" />
+          <g className={motionOn ? "ollie-dog-blink" : undefined}>
+            <ellipse cx="61" cy="82" rx="5" ry="5" fill="#1a2635" />
+            <ellipse cx="94" cy="82" rx="5" ry="5" fill="#1a2635" />
+          </g>
+          <circle cx="74" cy="96" r="7" fill="#42332c" />
+          <path d="M66 105c5 5 13 5 18 0" fill="none" stroke="#5e4636" strokeWidth="3" strokeLinecap="round" />
+          <path d="M49 110c-7 13-9 22-4 28M104 110c7 13 9 22 4 28" fill="none" stroke="#e9c99a" strokeWidth="10" strokeLinecap="round" />
+          <path d="M48 116c14 12 41 13 58 0l-4 18c-13 6-35 6-50 0Z" fill="#2B7FD8" stroke="#1E5BA8" strokeWidth="3" />
+        </g>
         <path d="M77 126l7 9-7 7-7-7Z" fill="#F4D758" stroke="#b18416" strokeWidth="2" />
       </svg>
     </div>
@@ -811,11 +973,12 @@ const APP_ART: Record<string, React.ReactNode> = {
   terminal: <AppArt emoji=">_" />,
   note: <FileArt ext="MD" color="#2B7FD8" />,
   canvas: <AppArt emoji="✦" />,
+  btc: <AppArt emoji="₿" />,
 };
 
 const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>> = {
   about:    { id: "about",    title: "About_Ollie",  type: "about",    w: 440, h: 480 },
-  music:    { id: "music",    title: "Music",        type: "music",    w: 380, h: 520 },
+  music:    { id: "music",    title: "Music",        type: "music",    w: 500, h: 620 },
   ai:       { id: "ai",       title: "AI_Lab",       type: "ai",       w: 460, h: 440 },
   now:      { id: "now",      title: "NOW.md",       type: "now",      w: 460, h: 440 },
   signal:   { id: "signal",   title: "SIGNAL_BOARD", type: "signal",   w: 500, h: 460 },
@@ -831,6 +994,7 @@ const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>
   photos:   { id: "photos",   title: "照片",         type: "photos",   w: 390, h: 480 },
   settings: { id: "settings", title: "设置",         type: "settings", w: 380, h: 420 },
   trash:    { id: "trash",    title: "废纸篓",       type: "trash",    w: 340, h: 330 },
+  btc:      { id: "btc",      title: "BTC 行情",     type: "market",   w: 560, h: 490 },
 };
 
 export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
@@ -843,6 +1007,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
   const [itemMenu, setItemMenu] = useState<{ pos: CtxMenuState; item: DesktopItem } | null>(null);
   const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
   const [starSeed, setStarSeed] = useState(0);
+  const defaultsOpened = useRef(false);
   const { windows, openWindow, closeWindow, bringToFront, updateWindow } = useWindowManager();
   useStars(surfaceRef, desktop.motionOn, starSeed);
 
@@ -852,14 +1017,38 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
       if (raw) {
         const saved = JSON.parse(raw) as Partial<DesktopState>;
         const fallback = createDefaultDesktopState();
-        setDesktop({ ...fallback, ...saved, items: saved.items?.length ? saved.items : fallback.items, notes: saved.notes?.length ? saved.notes : fallback.notes, tracks: saved.tracks?.length ? saved.tracks : fallback.tracks });
+        const savedTracks = saved.tracks?.length ? saved.tracks : fallback.tracks;
+        const savedItems = saved.items?.length
+          ? saved.items.map(item => {
+              const starter = fallback.items.find(entry => entry.id === item.id);
+              return starter?.kind === "app" ? { ...item, label: starter.label } : item;
+            })
+          : fallback.items;
+        if (!savedItems.some(item => item.id === "btc")) savedItems.push(fallback.items.find(item => item.id === "btc")!);
+        const mergedTracks = savedTracks.map(track => {
+          const starter = fallback.tracks.find(item => item.id === track.id);
+          return { ...starter, ...track, audioUrl: track.audioUrl ?? starter?.audioUrl };
+        });
+        setDesktop({
+          ...fallback,
+          ...saved,
+          items: savedItems,
+          notes: saved.notes?.length ? saved.notes : fallback.notes,
+          tracks: mergedTracks.map(track => track.audioUrl?.startsWith("blob:") ? { ...track, audioUrl: undefined } : track),
+        });
       }
     } catch { /* Fall back to the starter desk when browser storage is unavailable. */ }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (hydrated) window.localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(desktop));
+    if (hydrated) {
+      const persistable = {
+        ...desktop,
+        tracks: desktop.tracks.map(track => track.audioUrl?.startsWith("blob:") ? { ...track, audioUrl: undefined } : track),
+      };
+      window.localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(persistable));
+    }
   }, [desktop, hydrated]);
 
   useEffect(() => {
@@ -899,6 +1088,23 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
       y: Math.max(50,  (H - cfg.h) / 2 + (Math.random() - 0.5) * 80),
     });
   }, [onGoSystem, openWindow]);
+
+  useEffect(() => {
+    if (defaultsOpened.current) return;
+    defaultsOpened.current = true;
+    const W = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const H = typeof window !== "undefined" ? window.innerHeight : 800;
+    openWindow({
+      ...WIN_CONFIGS.about!,
+      x: Math.max(72, W * 0.18),
+      y: Math.max(54, H * 0.16),
+    });
+    openWindow({
+      ...WIN_CONFIGS.music!,
+      x: Math.max(72, W * 0.58),
+      y: Math.max(54, H * 0.10),
+    });
+  }, [openWindow]);
 
   const openItem = useCallback((item: DesktopItem) => {
     if (item.kind === "app") { handleOpenIcon(item.appId ?? item.id); return; }
@@ -962,6 +1168,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
       case "photos":   return <PhotosWindow />;
       case "settings": return <SettingsWindow motionOn={desktop.motionOn} setMotionOn={motionOn => updateDesktop(prev => ({ ...prev, motionOn }))} />;
       case "trash":    return <TrashWindow />;
+      case "market":   return <BtcMarketWindow />;
       case "localNote": {
         const note = desktop.notes.find(entry => entry.id === win.id);
         return note ? <LocalNoteWindow note={note} onChange={patch => {

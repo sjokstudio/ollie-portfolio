@@ -116,6 +116,23 @@ body {
   50% { transform: translateY(-2px) scale(1.012); }
 }
 
+@keyframes ollieDogBody {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  45% { transform: translateY(-2px) rotate(-1deg); }
+  70% { transform: translateY(0) rotate(1deg); }
+}
+
+@keyframes ollieDogEars {
+  0%, 82%, 100% { transform: rotate(0deg); }
+  86% { transform: rotate(-4deg); }
+  91% { transform: rotate(3deg); }
+}
+
+@keyframes ollieDogBlink {
+  0%, 43%, 46%, 100% { transform: scaleY(1); }
+  44%, 45% { transform: scaleY(0.12); }
+}
+
 @keyframes ollieDogTail {
   0%, 100% { transform: rotate(-7deg); }
   50% { transform: rotate(12deg); }
@@ -123,6 +140,24 @@ body {
 
 .ollie-dog-tail {
   animation: ollieDogTail 1.2s ease-in-out infinite;
+}
+
+.ollie-dog-body {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ollieDogBody 2.8s ease-in-out infinite;
+}
+
+.ollie-dog-ears {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ollieDogEars 4.8s ease-in-out infinite;
+}
+
+.ollie-dog-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ollieDogBlink 5.2s ease-in-out infinite;
 }
 
 .ollie-pet:focus-visible {

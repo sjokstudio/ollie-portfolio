@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Logic Pro Replica
+// Logic Pro Replica with Web Audio API Synthesizer
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TrackData {
@@ -18,49 +18,329 @@ interface TrackData {
 
 const INITIAL_TRACKS: TrackData[] = [
   {
-    id: "t1", name: "Lead Vocal", icon: "🎤", color: "#E84A5F", muted: false, solo: false, volume: 85,
+    id: "t1", name: "Synth Lead", icon: "🎹", color: "#E84A5F", muted: false, solo: false, volume: 75,
     regions: [
-      { id: "r1", start: 8, length: 16, name: "Verse 1" },
-      { id: "r2", start: 32, length: 16, name: "Chorus" },
+      { id: "r1", start: 4, length: 12, name: "Melody A" },
+      { id: "r2", start: 20, length: 12, name: "Melody B" },
     ],
   },
   {
     id: "t2", name: "808 Bass", icon: "🎸", color: "#F4D758", muted: false, solo: false, volume: 90,
     regions: [
-      { id: "r3", start: 8, length: 8, name: "808 Pattern A" },
-      { id: "r4", start: 16, length: 8, name: "808 Pattern B" },
-      { id: "r5", start: 32, length: 16, name: "808 Drop" },
+      { id: "r3", start: 0, length: 16, name: "808 Pattern A" },
+      { id: "r4", start: 16, length: 16, name: "808 Pattern B" },
     ],
   },
   {
     id: "t3", name: "Drum Machine", icon: "🥁", color: "#2B7FD8", muted: false, solo: false, volume: 80,
     regions: [
       { id: "r6", start: 0, length: 8, name: "HiHat Intro" },
-      { id: "r7", start: 8, length: 16, name: "Main Groove" },
-      { id: "r8", start: 32, length: 16, name: "Main Groove" },
+      { id: "r7", start: 8, length: 24, name: "Main Groove" },
     ],
   },
   {
-    id: "t4", name: "Ambient Pad", icon: "🎹", color: "#4ade80", muted: true, solo: false, volume: 60,
+    id: "t4", name: "Ambient Pad", icon: "🌌", color: "#4ade80", muted: false, solo: false, volume: 60,
     regions: [
       { id: "r9", start: 0, length: 16, name: "Intro Chords" },
-      { id: "r10", start: 32, length: 32, name: "Chorus Pad" },
+      { id: "r10", start: 16, length: 16, name: "Chorus Pad" },
     ],
   },
 ];
 
 const PIXELS_PER_BAR = 30; // Scale of the timeline
+const BPM = 140;
+const BARS_PER_SECOND = BPM / 4 / 60;
 
+// --- Audio Engine ---
+class AudioEngine {
+  ctx: AudioContext | null = null;
+  isPlaying: boolean = false;
+  nextNoteTime: number = 0;
+  current16thNote: number = 0;
+  timerID: number | null = null;
+  lookahead: number = 25.0; // ms
+  scheduleAheadTime: number = 0.1; // s
+
+  tracksState: TrackData[] = [];
+  masterGain: GainNode | null = null;
+
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.8;
+      this.masterGain.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
+  }
+
+  updateTracks(tracks: TrackData[]) {
+    this.tracksState = tracks;
+  }
+
+  play808(time: number, vol: number) {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(45, time + 0.1);
+
+    gain.gain.setValueAtTime(vol, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+
+    osc.start(time);
+    osc.stop(time + 0.8);
+  }
+
+  playHihat(time: number, vol: number) {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = "square";
+    filter.type = "highpass";
+    filter.frequency.value = 7000;
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.frequency.setValueAtTime(400, time);
+    gain.gain.setValueAtTime(vol * 0.5, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
+
+  playSnare(time: number, vol: number) {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = "triangle";
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.frequency.setValueAtTime(250, time);
+    gain.gain.setValueAtTime(vol * 0.8, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+
+    osc.start(time);
+    osc.stop(time + 0.2);
+  }
+
+  playPad(time: number, chord: number[], vol: number) {
+    if (!this.ctx || !this.masterGain) return;
+    const ctx = this.ctx;
+    chord.forEach(freq => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(vol * 0.2, time + 0.5);
+      gain.gain.linearRampToValueAtTime(0, time + 2.0);
+
+      osc.start(time);
+      osc.stop(time + 2.0);
+    });
+  }
+
+  playLead(time: number, freq: number, vol: number) {
+    if (!this.ctx || !this.masterGain) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = "sawtooth";
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(vol * 0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+
+    osc.start(time);
+    osc.stop(time + 0.3);
+  }
+
+  scheduleNote(beatNumber: number, time: number, currentBar: number) {
+    // Determine active tracks based on regions
+    const isTrackActive = (trackId: string) => {
+      const track = this.tracksState.find(t => t.id === trackId);
+      if (!track || track.muted) return false;
+      // Solo logic: if any track is soloed, only soloed tracks play
+      const anySolo = this.tracksState.some(t => t.solo);
+      if (anySolo && !track.solo) return false;
+
+      // Check if currentBar is within any region
+      return track.regions.some(r => currentBar >= r.start && currentBar < r.start + r.length);
+    };
+
+    const getVol = (trackId: string) => {
+      const track = this.tracksState.find(t => t.id === trackId);
+      return track ? track.volume / 100 : 0;
+    };
+
+    // --- Drum Machine (t3) ---
+    if (isTrackActive("t3")) {
+      const vol = getVol("t3");
+      // Hi-hats every 8th note
+      if (beatNumber % 2 === 0) {
+        this.playHihat(time, vol);
+      }
+      // Snare on beats 2 and 4 (16th notes: 4, 12)
+      if (beatNumber === 4 || beatNumber === 12) {
+        this.playSnare(time, vol);
+      }
+    }
+
+    // --- 808 Bass (t2) ---
+    if (isTrackActive("t2")) {
+      const vol = getVol("t2");
+      // Kick pattern
+      if (beatNumber === 0 || beatNumber === 7 || beatNumber === 10) {
+        this.play808(time, vol);
+      }
+    }
+
+    // --- Ambient Pad (t4) ---
+    if (isTrackActive("t4")) {
+      const vol = getVol("t4");
+      // Play chord at the start of every bar
+      if (beatNumber === 0) {
+        // Simple F#m -> D -> A -> E progression based on bar
+        const prog = currentBar % 4;
+        let chord = [185.00, 220.00, 277.18]; // F#m
+        if (prog === 1) chord = [146.83, 185.00, 220.00]; // D
+        if (prog === 2) chord = [220.00, 277.18, 329.63]; // A
+        if (prog === 3) chord = [164.81, 207.65, 246.94]; // E
+        this.playPad(time, chord, vol);
+      }
+    }
+
+    // --- Synth Lead (t1) ---
+    if (isTrackActive("t1")) {
+      const vol = getVol("t1");
+      const prog = currentBar % 4;
+      const root = prog === 0 ? 369.99 : prog === 1 ? 293.66 : prog === 2 ? 440.00 : 329.63;
+
+      if (beatNumber === 2 || beatNumber === 5 || beatNumber === 14) {
+        this.playLead(time, root * 1.5, vol);
+      }
+    }
+  }
+
+  scheduler() {
+    if (!this.ctx) return;
+    while (this.nextNoteTime < this.ctx.currentTime + this.scheduleAheadTime) {
+      // Calculate current bar based on total 16th notes elapsed
+      // (This is a simplified assumption that playhead drives the sequencer)
+      // Actually, we should sync it perfectly with the React state playhead,
+      // but Web Audio scheduling needs to run slightly ahead.
+
+      const currentBar = Math.floor(this.current16thNote / 16);
+      this.scheduleNote(this.current16thNote % 16, this.nextNoteTime, currentBar);
+
+      // Advance time
+      const secondsPerBeat = 60.0 / BPM;
+      this.nextNoteTime += 0.25 * secondsPerBeat; // 16th note
+      this.current16thNote++;
+    }
+    this.timerID = window.setTimeout(() => this.scheduler(), this.lookahead);
+  }
+
+  start(startBar: number) {
+    if (!this.ctx) this.init();
+    if (this.isPlaying) return;
+    this.isPlaying = true;
+    this.current16thNote = Math.floor(startBar * 16);
+    this.nextNoteTime = this.ctx!.currentTime + 0.05;
+    this.scheduler();
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.timerID !== null) {
+      window.clearTimeout(this.timerID);
+      this.timerID = null;
+    }
+  }
+}
+
+const audio = typeof window !== "undefined" ? new AudioEngine() : null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function WorksTab() {
   const [tracks, setTracks] = useState<TrackData[]>(INITIAL_TRACKS);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0); // in bars
+  const [referenceUrl, setReferenceUrl] = useState<string | null>(null);
   const reqRef = useRef<number | null>(null);
+  const referenceAudioRef = useRef<HTMLAudioElement>(null);
+
+  // Sync tracks to audio engine
+  useEffect(() => {
+    if (audio) audio.updateTracks(tracks);
+  }, [tracks]);
+
+  // Handle play/stop logic
+  useEffect(() => {
+    if (playing) {
+      if (referenceUrl && referenceAudioRef.current) {
+        referenceAudioRef.current.currentTime = playhead / BARS_PER_SECOND;
+        void referenceAudioRef.current.play();
+      } else if (audio) {
+        audio.init(); // Must be called from user interaction first time
+        audio.start(playhead);
+      }
+
+      let lastTime = performance.now();
+      const loop = (time: number) => {
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+        setPlayhead(p => {
+          const np = p + dt * BARS_PER_SECOND;
+          if (np > 100) {
+            setPlaying(false);
+            if (referenceAudioRef.current) {
+              referenceAudioRef.current.pause();
+              referenceAudioRef.current.currentTime = 0;
+            }
+            if (audio) audio.stop();
+            return 0;
+          }
+          return np;
+        });
+        reqRef.current = requestAnimationFrame(loop);
+      };
+      reqRef.current = requestAnimationFrame(loop);
+
+    } else {
+      if (referenceAudioRef.current) {
+        referenceAudioRef.current.pause();
+      }
+      if (audio) audio.stop();
+      if (reqRef.current) cancelAnimationFrame(reqRef.current);
+    }
+
+    return () => {
+      if (reqRef.current) cancelAnimationFrame(reqRef.current);
+    };
+  }, [playing, referenceUrl]); // Playhead is intentionally not a dependency while transport is running
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
       if (document.activeElement?.tagName === "INPUT") return;
       if (e.code === "Space") {
         e.preventDefault();
@@ -68,38 +348,23 @@ export default function WorksTab() {
       }
       if (e.code === "Enter" || e.code === "Return") {
         e.preventDefault();
-        setPlayhead(0);
         setPlaying(false);
+        setPlayhead(0);
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // ── Playhead animation ──
-  useEffect(() => {
-    let lastTime = performance.now();
-    const bpm = 140;
-    const barsPerSecond = bpm / 4 / 60; // 140 beats per min = 140/4 bars per min = 140/240 bars per sec
-
-    const loop = (time: number) => {
-      const dt = (time - lastTime) / 1000;
-      lastTime = time;
-      if (playing) {
-        setPlayhead(p => {
-          const np = p + dt * barsPerSecond;
-          if (np > 100) { setPlaying(false); return 0; } // Auto stop at bar 100
-          return np;
-        });
-      }
-      reqRef.current = requestAnimationFrame(loop);
-    };
-    reqRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(reqRef.current!);
-  }, [playing]);
-
-  const toggleMute = (id: string) => setTracks(ts => ts.map(t => t.id === id ? { ...t, muted: !t.muted } : t));
-  const toggleSolo = (id: string) => setTracks(ts => ts.map(t => t.id === id ? { ...t, solo: !t.solo } : t));
+  const toggleMute = useCallback((id: string) => setTracks(ts => ts.map(t => t.id === id ? { ...t, muted: !t.muted } : t)), []);
+  const toggleSolo = useCallback((id: string) => setTracks(ts => ts.map(t => t.id === id ? { ...t, solo: !t.solo } : t)), []);
+  const setVolume = useCallback((id: string, vol: number) => setTracks(ts => ts.map(t => t.id === id ? { ...t, volume: vol } : t)), []);
+  const importReference = (file: File) => {
+    if (referenceAudioRef.current) referenceAudioRef.current.pause();
+    setReferenceUrl(URL.createObjectURL(file));
+    setPlaying(false);
+    setPlayhead(0);
+  };
 
   return (
     <div style={{
@@ -123,7 +388,7 @@ export default function WorksTab() {
 
         {/* Transport controls */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button onClick={() => setPlayhead(0)} style={transportBtnStyle}>⏮</button>
+          <button onClick={() => { setPlaying(false); setPlayhead(0); }} style={transportBtnStyle}>⏮</button>
           <button onClick={() => setPlaying(false)} style={transportBtnStyle}>⏹</button>
           <button onClick={() => setPlaying(true)} style={{ ...transportBtnStyle, color: playing ? "#4ade80" : "#fff" }}>▶</button>
           <button style={{ ...transportBtnStyle, color: "#E84A5F" }}>⏺</button>
@@ -157,6 +422,10 @@ export default function WorksTab() {
         </div>
 
         <div style={{ marginLeft: "auto", fontSize: 11, color: "#8A8A9A", display: "flex", gap: 16 }}>
+          <label style={{ color: referenceUrl ? "#4ade80" : "#E84A5F", cursor: "pointer" }}>
+            {referenceUrl ? "完整音乐已载入" : "导入完整音乐"}
+            <input type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/*" onChange={e => { const file = e.target.files?.[0]; if (file) importReference(file); e.currentTarget.value = ""; }} style={{ display: "none" }} />
+          </label>
           <span>Space: Play/Pause</span>
           <span>Return: Stop & Reset</span>
         </div>
@@ -164,7 +433,8 @@ export default function WorksTab() {
 
       {/* ── Main Layout ── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        
+        <audio ref={referenceAudioRef} src={referenceUrl ?? undefined} onEnded={() => { setPlaying(false); setPlayhead(0); }} />
+
         {/* Left Inspector (Track Headers) */}
         <div style={{
           width: 260, background: "#252528", borderRight: "1px solid #111",
@@ -173,7 +443,7 @@ export default function WorksTab() {
           {/* Inspector Header */}
           <div style={{ height: 32, borderBottom: "1px solid #111", display: "flex", alignItems: "center", padding: "0 12px", gap: 10, background: "#2c2c2e" }}>
             <span style={{ fontSize: 14 }}>＋</span>
-            <span style={{ fontSize: 11, color: "#aaa" }}>Tracks</span>
+            <span style={{ fontSize: 11, color: "#aaa" }}>Visual Layers</span>
           </div>
 
           {/* Tracks */}
@@ -196,15 +466,16 @@ export default function WorksTab() {
                   <div style={{ display: "flex", gap: 4 }}>
                     <button onClick={() => toggleMute(t.id)} style={{ ...trackBtnStyle, background: t.muted ? "#3B82F6" : "#3a3a3c", color: t.muted ? "#fff" : "#aaa" }}>M</button>
                     <button onClick={() => toggleSolo(t.id)} style={{ ...trackBtnStyle, background: t.solo ? "#F4D758" : "#3a3a3c", color: t.solo ? "#000" : "#aaa" }}>S</button>
-                    <button style={trackBtnStyle}>R</button>
                   </div>
                 </div>
-                {/* Volume fader mock */}
+                {/* Volume slider */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 12, paddingRight: 4, height: 20 }}>
                   <span style={{ fontSize: 9, color: "#666" }}>Vol</span>
-                  <div style={{ flex: 1, height: 4, background: "#111", borderRadius: 2 }}>
-                    <div style={{ height: "100%", width: `${t.volume}%`, background: t.muted ? "#444" : "#4ade80", borderRadius: 2 }} />
-                  </div>
+                  <input
+                    type="range" min="0" max="100" value={t.volume}
+                    onChange={e => setVolume(t.id, parseInt(e.target.value))}
+                    style={{ flex: 1, height: 4, appearance: "none", background: "#111", borderRadius: 2, outline: "none", cursor: "pointer" }}
+                  />
                 </div>
               </div>
             ))}
@@ -213,14 +484,20 @@ export default function WorksTab() {
 
         {/* Right Arrangement (Timeline) */}
         <div style={{ flex: 1, background: "#1a1a1c", display: "flex", flexDirection: "column", position: "relative" }}>
-          
+
           {/* Ruler */}
-          <div style={{ height: 32, background: "#2c2c2e", borderBottom: "1px solid #111", display: "flex", position: "relative" }}>
+          <div style={{ cursor: "text", height: 32, background: "#2c2c2e", borderBottom: "1px solid #111", display: "flex", position: "relative" }}
+               onClick={(e) => {
+                 const rect = e.currentTarget.getBoundingClientRect();
+                 const x = e.clientX - rect.left;
+                 setPlayhead(x / PIXELS_PER_BAR);
+               }}
+          >
             {Array.from({ length: 100 }).map((_, i) => (
               <div key={i} style={{
                 position: "absolute", left: i * PIXELS_PER_BAR, top: 0, bottom: 0,
                 borderLeft: "1px solid #444", paddingLeft: 4, fontSize: 10, color: "#888",
-                display: "flex", alignItems: "flex-end", paddingBottom: 2,
+                display: "flex", alignItems: "flex-end", paddingBottom: 2, pointerEvents: "none"
               }}>
                 {i % 4 === 0 ? i + 1 : ""}
               </div>
