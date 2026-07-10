@@ -69,7 +69,7 @@ export function createDefaultDesktopState(): DesktopState {
     ],
     tracks: [
       { id: "track-01", title: "2026.331", subtitle: "Ollie / Track 01", color: "#E84A5F", audioUrl: "/audio/track-01.mp3" },
-      { id: "track-02", title: "3.27 灰色头像 miX3", subtitle: "Ollie / Track 02", color: "#F4D758", audioUrl: "/audio/track-02.mp3" },
+      { id: "track-02", title: "3.27灰色头像 miX3", subtitle: "Ollie / Track 02", color: "#F4D758", audioUrl: "/audio/track-02.mp3" },
     ],
   };
 }

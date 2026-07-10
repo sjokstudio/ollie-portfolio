@@ -4,14 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 type Phase = "booting" | "login" | "entering";
 
 const BOOT_STEPS = [
-  { text: "正在启动 OllieOS...",             dur: 520 },
-  { text: "同步 X 时间线...",                 dur: 580 },
-  { text: "加载 AI / Crypto / Music...",     dur: 650 },
-  { text: "过滤废话中...",                    dur: 480 },
-  { text: "恢复数字难民状态...",              dur: 540 },
-  { text: "检查今日精神状态...",              dur: 420 },
-  { text: "打开桌面...",                      dur: 380 },
-  { text: "Welcome back, Ollie.",           dur: 320 },
+  { text: "正在启动 OllieOS...",             dur: 240 },
+  { text: "加载 AI / Crypto / Music...",     dur: 260 },
+  { text: "恢复数字难民状态...",              dur: 230 },
+  { text: "打开桌面...",                      dur: 200 },
+  { text: "Welcome back, Ollie.",           dur: 180 },
 ];
 
 const TOTAL_DUR = BOOT_STEPS.reduce((s, b) => s + b.dur, 0);
@@ -37,7 +34,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
   const [phase, setPhase] = useState<Phase>("booting");
   const [progress, setProgress] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(2);
   const [hovered, setHovered] = useState(false);
   const clock = useLiveClock();
 
@@ -61,7 +58,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
       setTimeout(step, dur);
     };
 
-    const id = setTimeout(step, 350);
+    const id = setTimeout(step, 140);
     return () => clearTimeout(id);
   }, [phase]);
 
@@ -76,13 +73,13 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
   const doEnter = useCallback(() => {
     if (phase === "entering") return;
     setPhase("entering");
-    setTimeout(() => onEnter(), 900);
+    setTimeout(() => onEnter(), 380);
   }, [phase, onEnter]);
 
   /* ── SVG ring maths ── */
   const R = 58;
   const CIRC = 2 * Math.PI * R;
-  const dashOffset = CIRC * (countdown / 5);
+  const dashOffset = CIRC * (countdown / 2);
 
   /* ─────────────────────────────────────────────────────
      Phase: booting
@@ -142,7 +139,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
       alignItems: "center", justifyContent: "center",
       fontFamily: "-apple-system,'SF Pro Display','Helvetica Neue',sans-serif",
       opacity: phase === "entering" ? 0 : 1,
-      transition: phase === "entering" ? "opacity 0.9s ease" : "opacity 0.55s ease",
+      transition: phase === "entering" ? "opacity 0.38s ease" : "opacity 0.32s ease",
     }}>
 
       {/* ── Big clock (top, like macOS login) ── */}

@@ -35,7 +35,7 @@ const WALLPAPERS: Record<WallpaperKey, { bg: string; name: string }> = {
 // Star Wallpaper Hook
 // ─────────────────────────────────────────────────────────────────────────────
 const STAR_CHARS = ["✦", "✧", "★", "☆", "✶", "✴"];
-const STAR_COUNT = 32;
+const STAR_COUNT = 20;
 
 function useStars(surfaceRef: React.RefObject<HTMLDivElement | null>, enabled: boolean, seed: number) {
   useEffect(() => {
@@ -433,9 +433,10 @@ function formatPrice(value: number) {
 }
 
 function BtcChart({ candles }: { candles: MarketCandle[] }) {
-  const width = 520;
-  const height = 204;
-  const padding = { top: 12, right: 10, bottom: 18, left: 10 };
+  if (!candles.length) return null;
+  const width = 360;
+  const height = 128;
+  const padding = { top: 8, right: 8, bottom: 16, left: 8 };
   const high = Math.max(...candles.map(candle => candle.high));
   const low = Math.min(...candles.map(candle => candle.low));
   const range = Math.max(high - low, 1);
@@ -445,7 +446,7 @@ function BtcChart({ candles }: { candles: MarketCandle[] }) {
   const candleWidth = Math.max(2, Math.min(8, step * 0.58));
   const y = (price: number) => padding.top + ((high - price) / range) * innerHeight;
 
-  return <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="比特币美元一小时 K 线图" style={{ display: "block", width: "100%", height: 204, overflow: "visible" }}>
+  return <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="比特币美元一小时 K 线图" style={{ display: "block", width: "100%", height: 128, overflow: "visible" }}>
     {[0.2, 0.5, 0.8].map(point => <line key={point} x1={padding.left} x2={width - padding.right} y1={padding.top + innerHeight * point} y2={padding.top + innerHeight * point} stroke="rgba(202,220,242,0.12)" strokeWidth="1" strokeDasharray="3 5" />)}
     {candles.map((candle, index) => {
       const rising = candle.close >= candle.open;
@@ -458,7 +459,7 @@ function BtcChart({ candles }: { candles: MarketCandle[] }) {
         <rect x={x - candleWidth / 2} y={bodyTop} width={candleWidth} height={Math.max(1.5, bodyBottom - bodyTop)} rx="0.8" fill={color} />
       </g>;
     })}
-    <text x={padding.left} y={height - 3} fill="rgba(202,220,242,0.58)" fontSize="9" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">36H</text>
+    <text x={padding.left} y={height - 3} fill="rgba(202,220,242,0.58)" fontSize="9" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">24H</text>
     <text x={width - padding.right} y={height - 3} textAnchor="end" fill="rgba(202,220,242,0.58)" fontSize="9" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">NOW</text>
   </svg>;
 }
@@ -467,9 +468,11 @@ function BtcMarketWindow() {
   const [market, setMarket] = useState<BtcMarket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [streaming, setStreaming] = useState(false);
+  const hasMarketRef = useRef(false);
 
-  const loadMarket = useCallback(async () => {
-    setLoading(true);
+  const loadMarket = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       const response = await fetch("https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=60", { cache: "no-store" });
       if (!response.ok) throw new Error("行情服务暂时不可用");
@@ -478,7 +481,7 @@ function BtcMarketWindow() {
       const pairKey = Object.keys(payload.result).find(key => key !== "last");
       const rawCandles = pairKey ? payload.result[pairKey] : undefined;
       if (!Array.isArray(rawCandles) || rawCandles.length < 24) throw new Error("行情数据不足");
-      const candles = rawCandles.slice(-36).map(([time, open, high, low, close]) => ({
+      const candles = rawCandles.slice(-24).map(([time, open, high, low, close]) => ({
         time: time * 1000,
         open: Number(open),
         high: Number(high),
@@ -498,50 +501,101 @@ function BtcMarketWindow() {
         updatedAt: new Date().toISOString(),
         source: "Kraken public market data",
       });
+      hasMarketRef.current = true;
       setError(null);
     } catch {
-      setError("暂时无法读取实时行情，请稍后重试。");
+      if (!hasMarketRef.current) setError("暂时无法读取实时行情，请稍后重试。");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadMarket();
-    const timer = window.setInterval(() => void loadMarket(), 30_000);
+    void loadMarket(true);
+    const timer = window.setInterval(() => void loadMarket(), 60_000);
     return () => window.clearInterval(timer);
   }, [loadMarket]);
+
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let active = true;
+
+    const connect = () => {
+      socket = new WebSocket("wss://ws.kraken.com/");
+      socket.onopen = () => {
+        socket?.send(JSON.stringify({ event: "subscribe", pair: ["XBT/USD"], subscription: { name: "ticker" } }));
+        socket?.send(JSON.stringify({ event: "subscribe", pair: ["XBT/USD"], subscription: { name: "ohlc", interval: 60 } }));
+      };
+      socket.onmessage = event => {
+        const payload: unknown = JSON.parse(event.data);
+        setStreaming(true);
+        if (!Array.isArray(payload) || payload[3] !== "XBT/USD") return;
+        if (payload[2] === "ticker") {
+          const ticker = payload[1] as { c?: [string] };
+          const price = Number(ticker.c?.[0]);
+          if (!Number.isFinite(price)) return;
+          setMarket(previous => previous ? { ...previous, price, updatedAt: new Date().toISOString() } : previous);
+          return;
+        }
+        if (typeof payload[2] !== "string" || !payload[2].startsWith("ohlc-")) return;
+        const candle = payload[1] as string[];
+        const [,, open, high, low, close] = candle;
+        const values = [open, high, low, close].map(Number);
+        if (values.some(value => !Number.isFinite(value))) return;
+        setMarket(previous => {
+          if (!previous?.candles.length) return previous;
+          const candles = [...previous.candles];
+          candles[candles.length - 1] = { ...candles[candles.length - 1], open: values[0], high: values[1], low: values[2], close: values[3] };
+          return { ...previous, candles, price: values[3], updatedAt: new Date().toISOString() };
+        });
+      };
+      socket.onerror = () => socket?.close();
+      socket.onclose = () => {
+        if (!active) return;
+        setStreaming(false);
+        reconnectTimer = window.setTimeout(connect, 3_000);
+      };
+    };
+
+    connect();
+    return () => {
+      active = false;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
+  }, []);
 
   const positive = (market?.change24h ?? 0) >= 0;
   const statusColor = positive ? "#42d392" : "#f37477";
 
-  return <div style={{ minHeight: "100%", background: "#111722", color: "#edf4ff", padding: 18, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
+  return <div style={{ minHeight: "100%", background: "#111722", color: "#edf4ff", padding: 14, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
       <div>
         <div style={{ color: "#f4d758", fontSize: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", letterSpacing: "0.13em" }}>MARKET / LIVE</div>
-        <h2 style={{ margin: "4px 0 0", fontSize: 22, letterSpacing: "-0.03em" }}>Bitcoin</h2>
+        <h2 style={{ margin: "3px 0 0", fontSize: 18, letterSpacing: "-0.03em" }}>Bitcoin</h2>
       </div>
-      <button onClick={() => void loadMarket()} disabled={loading} aria-label="刷新比特币行情" style={{ minWidth: 44, height: 32, border: "1px solid rgba(237,244,255,0.18)", borderRadius: 8, background: loading ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.09)", color: "#edf4ff", cursor: loading ? "wait" : "pointer", fontSize: 14, transition: "transform 160ms ease, background 160ms ease" }}>↻</button>
+      <button onClick={() => void loadMarket(true)} disabled={loading} aria-label="刷新比特币行情" style={{ minWidth: 44, height: 32, border: "1px solid rgba(237,244,255,0.18)", borderRadius: 8, background: loading ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.09)", color: "#edf4ff", cursor: loading ? "wait" : "pointer", fontSize: 14, transition: "transform 160ms ease, background 160ms ease" }}>↻</button>
     </div>
 
-    {error ? <div role="alert" style={{ marginTop: 24, padding: 14, border: "1px solid rgba(243,116,119,0.42)", borderRadius: 10, color: "#ffc4c6", background: "rgba(243,116,119,0.1)", fontSize: 13, lineHeight: 1.55 }}>{error}<button onClick={() => void loadMarket()} style={{ display: "block", marginTop: 10, border: "none", background: "#f4d758", color: "#111722", borderRadius: 6, padding: "7px 10px", fontWeight: 700, cursor: "pointer" }}>重新连接</button></div> : <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 18 }}>
+    {error ? <div role="alert" style={{ marginTop: 24, padding: 14, border: "1px solid rgba(243,116,119,0.42)", borderRadius: 10, color: "#ffc4c6", background: "rgba(243,116,119,0.1)", fontSize: 13, lineHeight: 1.55 }}>{error}<button onClick={() => void loadMarket(true)} style={{ display: "block", marginTop: 10, border: "none", background: "#f4d758", color: "#111722", borderRadius: 6, padding: "7px 10px", fontWeight: 700, cursor: "pointer" }}>重新连接</button></div> : <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 12 }}>
         <div>
           <div style={{ color: "rgba(237,244,255,0.55)", fontSize: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>BTC / USD</div>
-          <div style={{ marginTop: 3, fontSize: 30, fontWeight: 760, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.04em" }}>{market ? `$${formatPrice(market.price)}` : "--"}</div>
+          <div style={{ marginTop: 3, fontSize: 25, fontWeight: 760, fontVariantNumeric: "tabular-nums", letterSpacing: "-0.04em" }}>{market ? `$${formatPrice(market.price)}` : "--"}</div>
         </div>
         <div style={{ color: statusColor, fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{market ? `${positive ? "+" : ""}${market.change24h.toFixed(2)}%` : "--"}<div style={{ marginTop: 3, fontSize: 9, fontWeight: 500, color: "rgba(237,244,255,0.48)", textAlign: "right" }}>24H</div></div>
       </div>
 
-      <div style={{ marginTop: 16, minHeight: 204, border: "1px solid rgba(202,220,242,0.12)", borderRadius: 10, padding: "4px 6px", background: "linear-gradient(180deg, rgba(57,78,112,0.2), rgba(17,23,34,0))" }}>
-        {market ? <BtcChart candles={market.candles} /> : <div style={{ height: 204, display: "grid", placeItems: "center", color: "rgba(237,244,255,0.48)", fontSize: 12 }}>正在读取 K 线...</div>}
+      <div style={{ marginTop: 10, minHeight: 128, border: "1px solid rgba(202,220,242,0.12)", borderRadius: 9, padding: "3px 5px", background: "linear-gradient(180deg, rgba(57,78,112,0.2), rgba(17,23,34,0))" }}>
+        {market ? <BtcChart candles={market.candles} /> : <div style={{ height: 128, display: "grid", placeItems: "center", color: "rgba(237,244,255,0.48)", fontSize: 12 }}>正在读取 K 线...</div>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 12 }}>
-        <div style={{ padding: "10px 11px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H HIGH</div><strong style={{ display: "block", marginTop: 4, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.high24h)}` : "--"}</strong></div>
-        <div style={{ padding: "10px 11px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H LOW</div><strong style={{ display: "block", marginTop: 4, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.low24h)}` : "--"}</strong></div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7, marginTop: 8 }}>
+        <div style={{ padding: "8px 9px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H HIGH</div><strong style={{ display: "block", marginTop: 3, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.high24h)}` : "--"}</strong></div>
+        <div style={{ padding: "8px 9px", borderRadius: 8, background: "rgba(255,255,255,0.05)" }}><div style={{ fontSize: 9, color: "rgba(237,244,255,0.5)" }}>24H LOW</div><strong style={{ display: "block", marginTop: 3, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{market ? `$${formatPrice(market.low24h)}` : "--"}</strong></div>
       </div>
-      <div style={{ marginTop: 12, fontSize: 9, color: "rgba(237,244,255,0.48)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{market ? `${market.source} · ${new Date(market.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · 1H candles` : ""}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 8, fontSize: 9, color: "rgba(237,244,255,0.48)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}><span>{streaming ? "● LIVE" : "○ RECONNECTING"}</span><span>{market ? `${new Date(market.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} · 1H` : ""}</span></div>
     </>}
   </div>;
 }
@@ -994,7 +1048,7 @@ const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>
   photos:   { id: "photos",   title: "照片",         type: "photos",   w: 390, h: 480 },
   settings: { id: "settings", title: "设置",         type: "settings", w: 380, h: 420 },
   trash:    { id: "trash",    title: "废纸篓",       type: "trash",    w: 340, h: 330 },
-  btc:      { id: "btc",      title: "BTC 行情",     type: "market",   w: 560, h: 490 },
+  btc:      { id: "btc",      title: "BTC 行情",     type: "market",   w: 390, h: 400 },
 };
 
 export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
@@ -1027,6 +1081,8 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
         if (!savedItems.some(item => item.id === "btc")) savedItems.push(fallback.items.find(item => item.id === "btc")!);
         const mergedTracks = savedTracks.map(track => {
           const starter = fallback.tracks.find(item => item.id === track.id);
+          const legacyTitle = track.title === "2026年3月31日 demo" || track.title === "2026年4月3日 demo";
+          if (starter && legacyTitle) return { ...track, ...starter, audioUrl: starter.audioUrl };
           return { ...starter, ...track, audioUrl: track.audioUrl ?? starter?.audioUrl };
         });
         setDesktop({
@@ -1096,13 +1152,18 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
     const H = typeof window !== "undefined" ? window.innerHeight : 800;
     openWindow({
       ...WIN_CONFIGS.about!,
-      x: Math.max(72, W * 0.18),
-      y: Math.max(54, H * 0.16),
+      x: 64,
+      y: 72,
     });
     openWindow({
       ...WIN_CONFIGS.music!,
-      x: Math.max(72, W * 0.58),
-      y: Math.max(54, H * 0.10),
+      x: Math.max(560, W - 540),
+      y: 62,
+    });
+    openWindow({
+      ...WIN_CONFIGS.btc!,
+      x: Math.max(500, W - 940),
+      y: Math.max(430, H - 410),
     });
   }, [openWindow]);
 
