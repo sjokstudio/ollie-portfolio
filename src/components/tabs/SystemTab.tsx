@@ -29,16 +29,16 @@ const COLOR = {
 // ─────────────────────────────────────────────────────────────────────────────
 const INITIAL_CANVASES: CanvasData[] = [
   {
-    id: "c1", name: "My Life OS", icon: "🖥",
+    id: "c1", name: "OllieOS", icon: "🖥",
     nodes: [
-      { id: "n1", x: 1700, y: 1680, w: 280, title: "My Life OS",       body: "Building the ultimate agentic system — music, trading, and research, all connected.",  color: "blue"   },
-      { id: "n2", x: 2080, y: 1640, w: 260, title: "Crypto Strategies", body: "Sentiment bots on CEX and DEX. Multi-strategy with on-chain signals.",                   color: "yellow" },
-      { id: "n3", x: 1750, y: 1980, w: 260, title: "Music Production",  body: "Cubase Pro 13 + 808 processing. Currently working on Beat Pack Vol.1.",                   color: "red"    },
+      { id: "n1", x: 1700, y: 1680, w: 280, title: "Ollie.",       body: "AI / Crypto / Music / 数字难民。常驻 X，合作私信。",  color: "blue"   },
+      { id: "n2", x: 2080, y: 1640, w: 260, title: "AI", body: "工具、模型、工作流、自动化，还有各种让人又兴奋又焦虑的新东西。",                   color: "yellow" },
+      { id: "n3", x: 1750, y: 1980, w: 260, title: "Crypto",  body: "叙事、情绪、土狗、DEX、暴涨暴跌，以及人性反复横跳。",                   color: "red"    },
       { id: "n4", x: 2060, y: 1920, w: 260, title: "Design System",     body: "Blue #2B7FD8 · Yellow #F4D758 · Red #E84A5F. Fraunces + Fira Code.",                       color: "blue"   },
     ],
   },
   {
-    id: "c2", name: "Music Planning", icon: "🎵",
+    id: "c2", name: "Music", icon: "🎵",
     nodes: [
       { id: "m1", x: 1760, y: 1720, w: 260, title: "Beat Pack Vol.1",   body: "8 instrumentals: Trap / Boom-Bap / Drill. Target release Q3 2026.",                     color: "red"    },
       { id: "m2", x: 2060, y: 1700, w: 260, title: "Cubase Template",   body: "Master template: 808 chain, vocal FX rack, sidechain compression preset.",              color: "yellow" },
@@ -46,7 +46,7 @@ const INITIAL_CANVASES: CanvasData[] = [
     ],
   },
   {
-    id: "c3", name: "Trading Strategy", icon: "📈",
+    id: "c3", name: "Crypto Watch", icon: "📈",
     nodes: [
       { id: "t1", x: 1740, y: 1700, w: 280, title: "BTC Sentiment Model", body: "Fear & Greed Index + on-chain net flow. Long when FGI < 25 and inflows.",             color: "yellow" },
       { id: "t2", x: 2060, y: 1700, w: 260, title: "Agent Architecture",  body: "Multi-agent: DataFetcher → SentimentAnalyzer → StrategyEngine → Executor.",           color: "blue"   },

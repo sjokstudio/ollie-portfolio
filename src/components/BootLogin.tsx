@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 type Phase = "booting" | "login" | "entering";
 
 const BOOT_STEPS = [
-  { text: "正在初始化 OllieOS 内核...",       dur: 520 },
-  { text: "Mounting /dev/music — 已挂载",    dur: 580 },
-  { text: "Loading AI Agent daemon...",      dur: 650 },
-  { text: "连接 Trading API 服务...",         dur: 480 },
-  { text: "Calibrating audio pipeline...",  dur: 540 },
-  { text: "恢复桌面环境...",                   dur: 420 },
-  { text: "Starting desktop session...",    dur: 380 },
+  { text: "正在启动 OllieOS...",             dur: 520 },
+  { text: "同步 X 时间线...",                 dur: 580 },
+  { text: "加载 AI / Crypto / Music...",     dur: 650 },
+  { text: "过滤废话中...",                    dur: 480 },
+  { text: "恢复数字难民状态...",              dur: 540 },
+  { text: "检查今日精神状态...",              dur: 420 },
+  { text: "打开桌面...",                      dur: 380 },
   { text: "Welcome back, Ollie.",           dur: 320 },
 ];
 
@@ -214,11 +214,11 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
           <div style={{
             fontSize: 24, fontWeight: 300,
             color: "#fff", letterSpacing: -0.5,
-          }}>Ollie x</div>
+          }}>Ollie.</div>
           <div style={{
             fontSize: 12, marginTop: 5,
             color: "rgba(255,255,255,0.5)",
-          }}>AI Researcher · Rapper · Music Producer</div>
+          }}>AI | Crypto | Music | 数字难民</div>
         </div>
 
         {/* Countdown hint */}

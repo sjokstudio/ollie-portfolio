@@ -17,15 +17,15 @@ export default function TerminalIntro({
 
   const script = [
     { type: "cmd", text: "whoami" },
-    { type: "output", text: "> AI Researcher & Music Producer" },
-    { type: "output", text: "  Crypto Enthusiast / Rap Artist" },
+    { type: "output", text: "> Ollie." },
+    { type: "output", text: "  AI / Crypto / Music / 数字难民" },
     { type: "blank" },
     { type: "cmd", text: "cat about.md" },
-    { type: "output", text: "> Building the future of AI & Web3." },
-    { type: "output", text: "  Producing beats in Cubase, dropping rhymes." },
+    { type: "output", text: "> 常驻 X，偶尔正常。" },
+    { type: "output", text: "  刷 AI，刷币圈，也刷互联网里的各种怪东西。" },
     { type: "blank" },
-    { type: "cmd", text: "echo '1 Person + AI = 1 Team'" },
-    { type: "gold", text: "> 1 Person + AI = 1 Team" },
+    { type: "cmd", text: "echo '常驻 X，偶尔正常。'" },
+    { type: "gold", text: "> 常驻 X，偶尔正常。" },
     { type: "blank" },
     { type: "cmd", text: "open system.app", cursor: true },
   ];

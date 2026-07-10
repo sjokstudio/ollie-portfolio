@@ -23,8 +23,8 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "AI Researcher & Music Producer",
-  description: "Personal OS Portfolio",
+  title: "Ollie. | AI Crypto Music",
+  description: "Ollie 的个人入口。AI、Crypto、Music、数字难民，常驻 X。",
 };
 
 export default function RootLayout({
@@ -41,4 +41,3 @@ export default function RootLayout({
     </html>
   );
 }
-

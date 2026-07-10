@@ -303,10 +303,10 @@ function AboutWindow() {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 18, marginBottom: 24 }}>
         <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#2B7FD8,#F4D758)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>🎤</div>
         <div>
-          <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 24, fontWeight: 900, color: "#1A1A2E", marginBottom: 4 }}>Ollie x</h1>
-          <p style={{ fontSize: 11, color: "#8A8A9A", fontFamily: "monospace", marginBottom: 10 }}>AI Researcher · Rapper · Music Producer</p>
+          <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 24, fontWeight: 900, color: "#1A1A2E", marginBottom: 4 }}>Ollie.</h1>
+          <p style={{ fontSize: 11, color: "#8A8A9A", fontFamily: "monospace", marginBottom: 10 }}>AI | Crypto | Music | 数字难民</p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {["#AI", "#Crypto", "#Rap", "#Cubase"].map(t => (
+            {["#AI", "#Crypto", "#Music", "#数字难民"].map(t => (
               <span key={t} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 999, background: "#2B7FD818", color: "#2B7FD8", fontFamily: "monospace" }}>{t}</span>
             ))}
           </div>
@@ -314,8 +314,8 @@ function AboutWindow() {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #eae8e4", paddingTop: 20 }}>
         {[
-          { icon: "🤖", title: "AI Research", desc: "构建 AI Agent 系统，研究量化交易与大模型应用" },
-          { icon: "🎵", title: "Music Production", desc: "制作人 · 说唱艺术家，Cubase Pro 13 主战场" },
+          { icon: "🤖", title: "常驻 X", desc: "刷 AI，刷币圈，刷音乐，也刷互联网里的各种怪东西。" },
+          { icon: "🌍", title: "数字难民", desc: "在平台、工具、叙事和身份之间来回迁徙，顺便留下点东西。" },
         ].map(s => (
           <div key={s.title} style={{ border: "1px dashed rgba(43,127,216,0.28)", borderRadius: 4, padding: "13px 15px" }}>
             <div style={{ fontSize: 20, marginBottom: 5 }}>{s.icon}</div>
@@ -327,7 +327,7 @@ function AboutWindow() {
       <div style={{ marginTop: 18, fontSize: 12 }}>
         <a href="https://x.com/ool69loo" target="_blank" rel="noopener noreferrer" style={{ color: "#2B7FD8", textDecoration: "none" }}>𝕏 @ool69loo →</a>
       </div>
-      <p style={{ marginTop: 18, fontSize: 11, color: "#8A8A9A", fontStyle: "italic", lineHeight: 1.8 }}>"1 Person + AI = 1 Team. 在 AI 时代认真做自己。"</p>
+      <p style={{ marginTop: 18, fontSize: 11, color: "#8A8A9A", fontStyle: "italic", lineHeight: 1.8 }}>"别太把自己当回事，也别太不把自己当回事。"</p>
     </div>
   );
 }
@@ -380,17 +380,17 @@ function MusicWindow() {
 
 function TerminalWindow() {
   const [lines, setLines] = useState([
-    { t: "out", v: "OllieOS v1.0.0 — AI Research Terminal" },
-    { t: "out", v: 'Type "help" to see available commands.' },
+    { t: "out", v: "OllieOS v1.0.0" },
+    { t: "out", v: "AI / Crypto / Music / Digital Refugee" },
     { t: "prompt", v: "" },
   ]);
   const [inp, setInp] = useState("");
   const bot = useRef<HTMLDivElement>(null);
   const CMDS: Record<string, string[]> = {
     help:   ["Available commands:", "  whoami  skills  music  clear"],
-    whoami: ["Ollie x", "AI Researcher · Rapper · @ool69loo"],
+    whoami: ["Ollie.", "常驻 X 的数字难民，偶尔输出点人话。"],
     skills: ["[AI]     LLM, Agents, RAG", "[Crypto] Quant, On-chain", "[Music]  Cubase, 808s", "[Dev]    Python, TypeScript"],
-    music:  ["Track 01 — loading...", "Track 02 — loading...", "Track 03 — loading...", "→ Open Music_Studio for full player"],
+    music:  ["Track 01 — loading...", "Track 02 — loading...", "Track 03 — loading...", "→ Open Music for full player"],
     clear:  [],
   };
   const submit = () => {
@@ -410,7 +410,7 @@ function TerminalWindow() {
       <div style={{ borderTop: "1px solid #222836", padding: "7px 14px", display: "flex", gap: 8 }}>
         <span style={{ color: "#2B7FD8", fontSize: 13, fontFamily: "monospace" }}>$</span>
         <input autoFocus value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()}
-          style={{ flex: 1, background: "none", border: "none", outline: "none", color: "#4ade80", fontSize: 13, fontFamily: "monospace" }} placeholder="type a command..." />
+          style={{ flex: 1, background: "none", border: "none", outline: "none", color: "#4ade80", fontSize: 13, fontFamily: "monospace" }} placeholder="type something..." />
       </div>
     </div>
   );
@@ -422,20 +422,20 @@ function NoteWindow() {
       <div style={{ fontFamily: "monospace", fontSize: 10, color: "#8A8A9A", marginBottom: 4 }}>_notes.md</div>
       <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 22, fontWeight: 900, color: "#1E5BA8", marginBottom: 16, lineHeight: 1.2 }}>
         <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#2B7FD8", fontSize: 14 }}># </span>
-        AI 时代的音乐制作
+        一些没必要但想写的东西
       </h1>
-      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>用 AI 做音乐，不是为了替代创作，而是为了扩张创作的边界。当一个 beat 出现在脑子里的时候，我希望实现它的速度跟得上我的想象力。</p>
-      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>Cubase 是我的主战场。808 bassline 的 saturation，vocal chain 的 de-ess 频段，这些细节决定了作品的质感。AI 工具帮我更快地验证想法，但最终推出去的每个元素，还是我亲手捏的。</p>
-      <div style={{ marginTop: 24, fontFamily: "monospace", fontSize: 10, color: "#8A8A9A" }}>— Ollie x · 2026</div>
+      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>最近一直在 X 上游荡。看 AI 怎么卷，看币圈怎么疯，看大家怎么在新的平台里重新找位置。</p>
+      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>我对宏大叙事没那么感兴趣，更关心具体的人怎么活、怎么表达、怎么用工具把自己放大一点。</p>
+      <div style={{ marginTop: 24, fontFamily: "monospace", fontSize: 10, color: "#8A8A9A" }}>— Ollie. · 2026</div>
     </div>
   );
 }
 
 function AILabWindow() {
   const projs = [
-    { n: "Trading Agent System", d: "多策略量化交易 Agent，含情绪分析模块", t: "Python · LangChain" },
-    { n: "RAG Knowledge Base",   d: "个人知识库 RAG，支持自然语言检索",     t: "TypeScript · Vector DB" },
-    { n: "Beat Classifier",      d: "ML 自动分类 beatmaking 素材",          t: "Python · Audio ML" },
+    { n: "AI 工具箱", d: "用 AI 写东西、改图、做视频、跑代码，能偷懒的地方绝不硬扛。", t: "GPT · Codex · Gemini · Workflow" },
+    { n: "Crypto 观察", d: "看叙事、看情绪、看链上，也看大家什么时候又开始上头。", t: "X · DEX · CEX · On-chain" },
+    { n: "内容实验", d: "推文、图片、视频、梗图、观点，能发出去才算真的完成。", t: "X · Content · Meme · Notes" },
   ];
   return (
     <div style={{ padding: 28, fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
@@ -575,7 +575,7 @@ function StickerEl() {
     >
       <div style={{ width: 110, height: 130, background: "linear-gradient(135deg,#1E5BA8,#2B7FD8)", borderRadius: 18, boxShadow: "0 8px 28px rgba(0,0,0,0.28)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "2px solid rgba(244,215,88,0.35)", gap: 8 }}>
         <div style={{ fontSize: 46 }}>🤖</div>
-        <div style={{ fontFamily: "monospace", fontSize: 9, color: "#F4D758", letterSpacing: 1 }}>OLLIE X</div>
+        <div style={{ fontFamily: "monospace", fontSize: 9, color: "#F4D758", letterSpacing: 1 }}>OLLIE.</div>
       </div>
     </div>
   );
@@ -612,12 +612,12 @@ const CtrlCenterIcon = () => (
 // Main DesktopOS
 // ─────────────────────────────────────────────────────────────────────────────
 const ICONS = [
-  { id: "about",    label: "About_Me",       iconEl: <FolderArt color="#F4D758" /> },
-  { id: "music",    label: "Music_Studio",   iconEl: <FolderArt color="#E84A5F" /> },
+  { id: "about",    label: "About_Ollie",    iconEl: <FolderArt color="#F4D758" /> },
+  { id: "music",    label: "Music",          iconEl: <FolderArt color="#E84A5F" /> },
   { id: "ai",       label: "AI_Lab",         iconEl: <FolderArt color="#2B7FD8" /> },
   { id: "terminal", label: "Terminal",        iconEl: <AppArt emoji=">_" /> },
   { id: "note",     label: "_notes.md",      iconEl: <FileArt ext="MD" color="#2B7FD8" /> },
-  { id: "canvas",   label: "Infinite_Canvas", iconEl: <AppArt emoji="🌌" /> },
+  { id: "canvas",   label: "Ollie_Canvas",   iconEl: <AppArt emoji="🌌" /> },
 ] as const;
 
 const ICON_POSITIONS = [
@@ -630,8 +630,8 @@ const ICON_POSITIONS = [
 ];
 
 const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>> = {
-  about:    { id: "about",    title: "About_Me",     type: "about",    w: 440, h: 480 },
-  music:    { id: "music",    title: "Music_Studio", type: "music",    w: 380, h: 520 },
+  about:    { id: "about",    title: "About_Ollie",  type: "about",    w: 440, h: 480 },
+  music:    { id: "music",    title: "Music",        type: "music",    w: 380, h: 520 },
   ai:       { id: "ai",       title: "AI_Lab",       type: "ai",       w: 460, h: 440 },
   terminal: { id: "terminal", title: "Terminal",     type: "terminal", w: 500, h: 360 },
   note:     { id: "note",     title: "_notes.md",   type: "note",     w: 440, h: 440 },
