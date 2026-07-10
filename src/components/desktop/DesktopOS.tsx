@@ -3,13 +3,28 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import {
   createDefaultDesktopState,
   DESKTOP_STORAGE_KEY,
+  LEGACY_DESKTOP_STORAGE_KEY,
   gridPosition,
   type DesktopItem,
   type DesktopState,
+  type IdeaItem,
   type LocalNote,
   type MusicTrack,
   type WallpaperKey,
 } from "./desktopStore";
+import {
+  AILabWindow as EnhancedAILabWindow,
+  IdeaWindow,
+  LinksWindow as EnhancedLinksWindow,
+  MemoWindow as EnhancedMemoWindow,
+  NowWindow as EnhancedNowWindow,
+  SettingsWindow as EnhancedSettingsWindow,
+  SignalWindow as EnhancedSignalWindow,
+  TerminalWindow as EnhancedTerminalWindow,
+  WeatherWindow as EnhancedWeatherWindow,
+} from "./ContentWindows";
+import { useTheme, type ResolvedTheme, type ThemeMode } from "@/components/theme/ThemeProvider";
+import { Monitor, Moon, Sun } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -17,18 +32,18 @@ import {
 export interface WindowDef {
   id: string;
   title: string;
-  type: "about" | "music" | "ai" | "terminal" | "note" | "calendar" | "memo" | "weather" | "clock" | "calculator" | "photos" | "settings" | "trash" | "now" | "signal" | "links" | "market" | "folder" | "localNote";
+  type: "about" | "music" | "ai" | "terminal" | "calendar" | "memo" | "idea" | "weather" | "clock" | "calculator" | "photos" | "settings" | "trash" | "now" | "signal" | "links" | "market" | "folder" | "localNote";
   zIndex: number;
   minimized?: boolean;
   x: number; y: number; w: number; h: number;
 }
 
-const WALLPAPERS: Record<WallpaperKey, { bg: string; name: string }> = {
-  blue:   { bg: "#2B7FD8",                                                                     name: "Ocean Blue"  },
-  dark:   { bg: "#0d1117",                                                                     name: "Midnight"    },
-  space:  { bg: "linear-gradient(135deg,#0a0a0c 0%,#1a1a2e 50%,#16213e 100%)",               name: "Space"       },
-  forest: { bg: "linear-gradient(135deg,#1a3a2a 0%,#2d5a3d 100%)",                           name: "Forest"      },
-  dusk:   { bg: "linear-gradient(135deg,#2d1b69 0%,#8e2de2 50%,#4a00e0 100%)",               name: "Dusk"        },
+const WALLPAPERS: Record<WallpaperKey, { light: string; dark: string; name: string }> = {
+  blue:   { light: "linear-gradient(145deg,#2B7FD8 0%,#348de6 58%,#2371c5 100%)", dark: "linear-gradient(145deg,#07192e 0%,#0c3158 58%,#0b2442 100%)", name: "Ocean Blue" },
+  dark:   { light: "linear-gradient(145deg,#6f7d8f,#34445a)", dark: "linear-gradient(145deg,#070b11,#151d29)", name: "Midnight" },
+  space:  { light: "linear-gradient(135deg,#31415c 0%,#4b4f78 50%,#24486d 100%)", dark: "linear-gradient(135deg,#08090d 0%,#17182b 50%,#0d2844 100%)", name: "Space" },
+  forest: { light: "linear-gradient(135deg,#39815b 0%,#1e6040 100%)", dark: "linear-gradient(135deg,#0d2419 0%,#173b29 100%)", name: "Forest" },
+  dusk:   { light: "linear-gradient(135deg,#7354bc 0%,#a64fc1 52%,#536ed6 100%)", dark: "linear-gradient(135deg,#22154d 0%,#55216d 52%,#182b61 100%)", name: "Dusk" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +52,7 @@ const WALLPAPERS: Record<WallpaperKey, { bg: string; name: string }> = {
 const STAR_CHARS = ["✦", "✧", "★", "☆", "✶", "✴"];
 const STAR_COUNT = 20;
 
-function useStars(surfaceRef: React.RefObject<HTMLDivElement | null>, enabled: boolean, seed: number) {
+function useStars(surfaceRef: React.RefObject<HTMLDivElement | null>, enabled: boolean, seed: number, theme: ResolvedTheme) {
   useEffect(() => {
     const surface = surfaceRef.current;
     if (!surface || !enabled) return;
@@ -55,7 +70,7 @@ function useStars(surfaceRef: React.RefObject<HTMLDivElement | null>, enabled: b
         `position:absolute`,
         `left:${bx}%`,
         `top:${by}%`,
-        `color:#F4D758`,
+        `color:${theme === "dark" ? "#F4D758" : "#ffe77c"}`,
         `font-size:${10 + Math.random() * 14}px`,
         `opacity:${0.4 + Math.random() * 0.5}`,
         `pointer-events:none`,
@@ -106,7 +121,7 @@ function useStars(surfaceRef: React.RefObject<HTMLDivElement | null>, enabled: b
       surface.removeEventListener("click", onClick);
       stars.forEach(s => s.el.remove());
     };
-  }, [surfaceRef, enabled, seed]);
+  }, [surfaceRef, enabled, seed, theme]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,7 +144,7 @@ function useClock() {
 // ─────────────────────────────────────────────────────────────────────────────
 function useWindowManager() {
   const [windows, setWindows] = useState<WindowDef[]>([]);
-  const [topZ, setTopZ]       = useState(100);
+  const [, setTopZ]           = useState(100);
 
   const openWindow = useCallback((def: Omit<WindowDef, "zIndex">) => {
     setTopZ(z => {
@@ -173,9 +188,10 @@ function OsWindow({ win, onClose, onFocus, onUpdate, children }: {
       className="os-win absolute flex flex-col rounded-[10px] overflow-hidden"
       style={{
         left: win.x, top: win.y, width: win.w, height: win.h, zIndex: win.zIndex,
-        background: "#fefcf6",
-        border: "1px solid rgba(0,0,0,0.13)",
-        boxShadow: "0 20px 56px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.05)",
+        background: "var(--ollie-window)",
+        color: "var(--ollie-text)",
+        border: "1px solid var(--ollie-border-strong)",
+        boxShadow: "0 20px 56px var(--ollie-shadow), 0 0 0 0.5px var(--ollie-border)",
         animation: "winPop 0.22s cubic-bezier(0.16,1,0.3,1)",
       }}
       onPointerDown={onFocus}
@@ -185,7 +201,7 @@ function OsWindow({ win, onClose, onFocus, onUpdate, children }: {
         style={{
           height: 36, flexShrink: 0, display: "flex", alignItems: "center",
           padding: "0 12px", gap: 8,
-          background: "#eeece8", borderBottom: "1px solid rgba(0,0,0,0.07)",
+          background: "var(--ollie-titlebar)", borderBottom: "1px solid var(--ollie-border)",
           cursor: "grab", userSelect: "none",
           fontFamily: "-apple-system,'SF Pro Text','Helvetica Neue',sans-serif",
         }}
@@ -211,13 +227,13 @@ function OsWindow({ win, onClose, onFocus, onUpdate, children }: {
           />
           <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#27c93f" }} />
         </div>
-        <span style={{ flex: 1, textAlign: "center", fontSize: 12, color: "#8A8A9A", paddingRight: 54 }}>
+        <span style={{ flex: 1, textAlign: "center", fontSize: 12, color: "var(--ollie-muted)", paddingRight: 54 }}>
           {win.title}
         </span>
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflow: "auto", background: "#fefcf6" }}>{children}</div>
+      <div style={{ flex: 1, overflow: "auto", background: "var(--ollie-window)" }}>{children}</div>
 
       {/* Resize handle */}
       <div
@@ -229,12 +245,13 @@ function OsWindow({ win, onClose, onFocus, onUpdate, children }: {
         }}
         onPointerMove={e => {
           if (!resize.current) return;
-          onUpdate({ w: Math.max(320, resize.current.sw + e.clientX - resize.current.sx), h: Math.max(200, resize.current.sh + e.clientY - resize.current.sy) });
+          const minWidth = Math.min(320, window.innerWidth - 20);
+          onUpdate({ w: Math.max(minWidth, resize.current.sw + e.clientX - resize.current.sx), h: Math.max(200, resize.current.sh + e.clientY - resize.current.sy) });
         }}
         onPointerUp={() => { resize.current = null; }}
       >
         <svg viewBox="0 0 10 10" style={{ width: "100%", height: "100%", opacity: 0.25 }}>
-          <path d="M8 2L2 8M8 5L5 8" stroke="#1A1A2E" strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M8 2L2 8M8 5L5 8" stroke="var(--ollie-text)" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
       </div>
     </div>
@@ -265,7 +282,19 @@ function DesktopIcon({ item, iconEl, selected, onSelect, onOpen, onMove, onConte
     <div
       className="dicon absolute flex flex-col items-center gap-1.5 p-2 rounded-[10px] select-none cursor-default transition-colors"
       style={{ background: selected ? "rgba(255,255,255,0.22)" : "transparent", width: 80, left: item.x, top: item.y, touchAction: "none" }}
+      role="button"
+      tabIndex={0}
+      aria-label={`打开${item.label}`}
       onClick={handleClick}
+      onKeyDown={event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onOpen();
+        } else if (event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
       onContextMenu={onContextMenu}
       onPointerDown={e => {
         if (e.button !== 0) return; e.stopPropagation();
@@ -319,8 +348,8 @@ function AboutWindow() {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 18, marginBottom: 24 }}>
         <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#2B7FD8,#F4D758)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>🎤</div>
         <div>
-          <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 24, fontWeight: 900, color: "#1A1A2E", marginBottom: 4 }}>Ollie.</h1>
-          <p style={{ fontSize: 11, color: "#8A8A9A", fontFamily: "monospace", marginBottom: 10 }}>AI | Crypto | Music | 数字难民</p>
+          <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 24, fontWeight: 900, color: "var(--ollie-text)", marginBottom: 4 }}>Ollie.</h1>
+          <p style={{ fontSize: 11, color: "var(--ollie-muted)", fontFamily: "monospace", marginBottom: 10 }}>AI | Crypto | Music | 数字难民</p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {["#AI", "#Crypto", "#Music", "#数字难民"].map(t => (
               <span key={t} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 999, background: "#2B7FD818", color: "#2B7FD8", fontFamily: "monospace" }}>{t}</span>
@@ -328,7 +357,7 @@ function AboutWindow() {
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid #eae8e4", paddingTop: 20 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px solid var(--ollie-border)", paddingTop: 20 }}>
         {[
           { icon: "🤖", title: "常驻 X", desc: "刷 AI，刷币圈，刷音乐，也刷互联网里的各种怪东西。" },
           { icon: "🌍", title: "数字难民", desc: "在平台、工具、叙事和身份之间来回迁徙，顺便留下点东西。" },
@@ -336,14 +365,14 @@ function AboutWindow() {
           <div key={s.title} style={{ border: "1px dashed rgba(43,127,216,0.28)", borderRadius: 4, padding: "13px 15px" }}>
             <div style={{ fontSize: 20, marginBottom: 5 }}>{s.icon}</div>
             <div style={{ fontFamily: "var(--font-fraunces)", fontStyle: "italic", fontSize: 15, color: "#1E5BA8", marginBottom: 4 }}>{s.title}</div>
-            <div style={{ fontSize: 12, color: "#666", lineHeight: 1.6 }}>{s.desc}</div>
+            <div style={{ fontSize: 12, color: "var(--ollie-text-soft)", lineHeight: 1.6 }}>{s.desc}</div>
           </div>
         ))}
       </div>
       <div style={{ marginTop: 18, fontSize: 12 }}>
         <a href="https://x.com/ool69loo" target="_blank" rel="noopener noreferrer" style={{ color: "#2B7FD8", textDecoration: "none" }}>𝕏 @ool69loo →</a>
       </div>
-      <p style={{ marginTop: 18, fontSize: 11, color: "#8A8A9A", fontStyle: "italic", lineHeight: 1.8 }}>"别太把自己当回事，也别太不把自己当回事。"</p>
+      <p style={{ marginTop: 18, fontSize: 11, color: "var(--ollie-muted)", fontStyle: "italic", lineHeight: 1.8 }}>“别太把自己当回事，也别太不把自己当回事。”</p>
     </div>
   );
 }
@@ -511,9 +540,9 @@ function BtcMarketWindow() {
   }, []);
 
   useEffect(() => {
-    void loadMarket(true);
+    const initialTimer = window.setTimeout(() => void loadMarket(true), 0);
     const timer = window.setInterval(() => void loadMarket(), 60_000);
-    return () => window.clearInterval(timer);
+    return () => { window.clearTimeout(initialTimer); window.clearInterval(timer); };
   }, [loadMarket]);
 
   useEffect(() => {
@@ -600,116 +629,16 @@ function BtcMarketWindow() {
   </div>;
 }
 
-function TerminalWindow() {
-  const [lines, setLines] = useState([
-    { t: "out", v: "OllieOS v1.0.0" },
-    { t: "out", v: "AI / Crypto / Music / Digital Refugee" },
-    { t: "prompt", v: "" },
-  ]);
-  const [inp, setInp] = useState("");
-  const bot = useRef<HTMLDivElement>(null);
-  const CMDS: Record<string, string[]> = {
-    help:   ["Available commands:", "  whoami  skills  music  clear"],
-    whoami: ["Ollie.", "常驻 X 的数字难民，偶尔输出点人话。"],
-    skills: ["[AI]     LLM, Agents, RAG", "[Crypto] Quant, On-chain", "[Music]  Cubase, 808s", "[Dev]    Python, TypeScript"],
-    music:  ["Track 01 — loading...", "Track 02 — loading...", "Track 03 — loading...", "→ Open Music for full player"],
-    clear:  [],
-  };
-  const submit = () => {
-    const cmd = inp.trim().toLowerCase(); setInp("");
-    const prev = [...lines.slice(0, -1), { t: "cmd", v: `$ ${cmd}` }];
-    if (cmd === "clear") { setLines([{ t: "prompt", v: "" }]); return; }
-    const out = CMDS[cmd] ?? [`zsh: command not found: ${cmd}`];
-    setLines([...prev, ...out.map(v => ({ t: "out", v })), { t: "prompt", v: "" }]);
-  };
-  useEffect(() => { bot.current?.scrollIntoView({ behavior: "smooth" }); }, [lines]);
-  return (
-    <div style={{ background: "#0f1115", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, overflow: "auto", padding: "14px 16px", fontSize: 13, lineHeight: 1.7, fontFamily: "monospace" }}>
-        {lines.map((l, i) => <div key={i} style={{ color: l.t === "cmd" ? "#F4D758" : "rgba(74,222,128,0.85)" }}>{l.v}</div>)}
-        <div ref={bot} />
-      </div>
-      <div style={{ borderTop: "1px solid #222836", padding: "7px 14px", display: "flex", gap: 8 }}>
-        <span style={{ color: "#2B7FD8", fontSize: 13, fontFamily: "monospace" }}>$</span>
-        <input autoFocus value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()}
-          style={{ flex: 1, background: "none", border: "none", outline: "none", color: "#4ade80", fontSize: 13, fontFamily: "monospace" }} placeholder="type something..." />
-      </div>
-    </div>
-  );
-}
-
-function NoteWindow() {
-  return (
-    <div style={{ padding: "28px 32px", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
-      <div style={{ fontFamily: "monospace", fontSize: 10, color: "#8A8A9A", marginBottom: 4 }}>_notes.md</div>
-      <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 22, fontWeight: 900, color: "#1E5BA8", marginBottom: 16, lineHeight: 1.2 }}>
-        <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#2B7FD8", fontSize: 14 }}># </span>
-        一些没必要但想写的东西
-      </h1>
-      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>最近一直在 X 上游荡。看 AI 怎么卷，看币圈怎么疯，看大家怎么在新的平台里重新找位置。</p>
-      <p style={{ fontSize: 14, color: "#4A4A5A", lineHeight: 1.85, marginBottom: 14 }}>我对宏大叙事没那么感兴趣，更关心具体的人怎么活、怎么表达、怎么用工具把自己放大一点。</p>
-      <div style={{ marginTop: 24, fontFamily: "monospace", fontSize: 10, color: "#8A8A9A" }}>— Ollie. · 2026</div>
-    </div>
-  );
-}
-
-function AILabWindow() {
-  const projs = [
-    { n: "AI 工具箱", d: "用 AI 写东西、改图、做视频、跑代码，能偷懒的地方绝不硬扛。", t: "GPT · Codex · Gemini · Workflow" },
-    { n: "Crypto 观察", d: "看叙事、看情绪、看链上，也看大家什么时候又开始上头。", t: "X · DEX · CEX · On-chain" },
-    { n: "内容实验", d: "推文、图片、视频、梗图、观点，能发出去才算真的完成。", t: "X · Content · Meme · Notes" },
-  ];
-  return (
-    <div style={{ padding: 28, fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
-      <h1 style={{ fontFamily: "var(--font-fraunces)", fontSize: 20, fontWeight: 900, color: "#1E5BA8", marginBottom: 20 }}>
-        <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#2B7FD8", fontSize: 14 }}># </span>AI Lab
-      </h1>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {projs.map((p, i) => (
-          <div key={i} style={{ background: "#fefcf6", borderRadius: 10, padding: "14px 16px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}><span>📁</span><span style={{ fontWeight: 500, fontSize: 14 }}>{p.n}</span></div>
-            <div style={{ fontSize: 12, color: "#4A4A5A", lineHeight: 1.6, marginLeft: 22, marginBottom: 8 }}>{p.d}</div>
-            <span style={{ fontSize: 10, fontFamily: "monospace", padding: "2px 8px", borderRadius: 999, background: "#2B7FD815", color: "#2B7FD8", marginLeft: 22 }}>{p.t}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NowWindow() {
-  const cards = [
-    ["现在在看", "AI 叙事、创作工具与人怎么重新分配注意力"],
-    ["正在做", "把零散的观点、音乐和工具实验整理成可留下来的东西"],
-    ["下一步", "写一篇值得反复打开的文章，或做一段想重复听的声音"],
-  ];
-  return <SystemWindow><div style={{ fontSize: 11, color: "#2B7FD8", letterSpacing: 1 }}>NOW / OLLIE</div><h2 style={{ margin: "4px 0 18px", fontSize: 24 }}>此刻正在发生</h2><div style={{ display: "grid", gap: 10 }}>{cards.map(([title, body], index) => <div key={title} style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid #e6e3de", background: index === 0 ? "#edf6ff" : "#fffdf8" }}><div style={{ fontSize: 11, color: "#8A8A9A", marginBottom: 5 }}>{title}</div><div style={{ fontSize: 14, lineHeight: 1.65, color: "#273047" }}>{body}</div></div>)}</div><p style={{ marginTop: 18, fontSize: 11, color: "#8A8A9A" }}>这是 OllieOS 的当前页。它不追求实时，只记录此刻。</p></SystemWindow>;
-}
-
-function SignalWindow() {
-  const signals = [
-    ["AI", "把工具当作新的表达器官，而不是炫技的玩具。", "#2B7FD8"],
-    ["Crypto", "观察叙事、情绪与链上的人，保持一点距离感。", "#E84A5F"],
-    ["Music", "把没说完的话，留给节拍、低频和夜路。", "#F4D758"],
-    ["Digital Nomad", "在平台、身份与城市之间，保留自己的坐标。", "#6E7480"],
-  ];
-  return <SystemWindow><div style={{ fontSize: 11, color: "#1E5BA8", letterSpacing: 1 }}>SIGNAL BOARD</div><h2 style={{ margin: "4px 0 18px", fontSize: 24 }}>Ollie 的观察频段</h2><div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>{signals.map(([title, body, color]) => <div key={title} style={{ minHeight: 134, padding: 15, borderRadius: 12, background: "#fffdf8", borderTop: `4px solid ${color}` }}><div style={{ color, fontWeight: 700, marginBottom: 10 }}>{title}</div><div style={{ fontSize: 12, lineHeight: 1.65, color: "#4A4A5A" }}>{body}</div></div>)}</div></SystemWindow>;
-}
-
-function LinksWindow() {
-  return <SystemWindow><div style={{ fontSize: 11, color: "#B64FD2", letterSpacing: 1 }}>LINK LOCKER</div><h2 style={{ margin: "4px 0 18px", fontSize: 24 }}>把门留在这里</h2><a href="https://x.com/ool69loo" target="_blank" rel="noreferrer" style={{ display: "block", padding: "15px 16px", borderRadius: 12, background: "#111827", color: "#fff", textDecoration: "none", marginBottom: 10 }}><strong>𝕏 @ool69loo</strong><span style={{ display: "block", fontSize: 11, opacity: 0.68, marginTop: 4 }}>观点、工具、实验与日常信号</span></a><div style={{ padding: "15px 16px", borderRadius: 12, background: "#fffdf8", border: "1px solid #e6e3de", marginBottom: 10 }}><strong>Telegram</strong><span style={{ display: "block", fontSize: 11, color: "#666", marginTop: 4 }}>私信 X 获取</span></div><div style={{ padding: "15px 16px", borderRadius: 12, background: "#fffdf8", border: "1px solid #e6e3de" }}><strong>Email</strong><span style={{ display: "block", fontSize: 11, color: "#666", marginTop: 4 }}>私信 X 获取</span></div></SystemWindow>;
-}
-
 function LocalNoteWindow({ note, onChange }: { note: LocalNote; onChange: (patch: Partial<LocalNote>) => void }) {
-  return <SystemWindow><input aria-label="便签标题" value={note.title} onChange={e => onChange({ title: e.target.value })} style={{ width: "100%", border: "none", borderBottom: "1px solid #e6e3de", padding: "2px 0 10px", fontSize: 21, fontWeight: 700, background: "transparent", outline: "none", color: "#1A1A2E" }} /><textarea aria-label="便签内容" value={note.body} onChange={e => onChange({ body: e.target.value, updatedAt: new Date().toISOString() })} style={{ width: "100%", minHeight: 280, marginTop: 16, resize: "vertical", border: "none", outline: "none", background: "transparent", fontSize: 14, lineHeight: 1.8, color: "#4A4A5A" }} /><div style={{ marginTop: 10, color: "#8A8A9A", fontSize: 10 }}>自动保存在此浏览器 · {new Date(note.updatedAt).toLocaleDateString("zh-CN")}</div></SystemWindow>;
+  return <SystemWindow><input aria-label="便签标题" value={note.title} onChange={e => onChange({ title: e.target.value })} style={{ width: "100%", border: "none", borderBottom: "1px solid var(--ollie-border)", padding: "2px 0 10px", fontSize: 21, fontWeight: 700, background: "transparent", outline: "none", color: "var(--ollie-text)" }} /><textarea aria-label="便签内容" value={note.body} onChange={e => onChange({ body: e.target.value, updatedAt: new Date().toISOString() })} style={{ width: "100%", minHeight: 280, marginTop: 16, resize: "vertical", border: "none", outline: "none", background: "transparent", fontSize: 14, lineHeight: 1.8, color: "var(--ollie-text-soft)" }} /><div style={{ marginTop: 10, color: "var(--ollie-muted)", fontSize: 10 }}>自动保存在此浏览器 · {new Date(note.updatedAt).toLocaleDateString("zh-CN")}</div></SystemWindow>;
 }
 
 function FolderWindow({ title, onNewNote }: { title: string; onNewNote: () => void }) {
-  return <SystemWindow><div style={{ fontSize: 11, color: "#D4AB22", letterSpacing: 1 }}>LOCAL FOLDER</div><h2 style={{ margin: "4px 0 6px", fontSize: 24 }}>{title}</h2><p style={{ margin: "0 0 20px", color: "#777", fontSize: 12 }}>这是当前浏览器里的私人文件夹。</p><button onClick={onNewNote} style={{ ...smallToolButton, background: "#2B7FD8", color: "#fff", border: "none" }}>新建便签</button></SystemWindow>;
+  return <SystemWindow><div style={{ fontSize: 11, color: "#D4AB22", letterSpacing: 1 }}>LOCAL FOLDER</div><h2 style={{ margin: "4px 0 6px", fontSize: 24 }}>{title}</h2><p style={{ margin: "0 0 20px", color: "var(--ollie-text-soft)", fontSize: 12 }}>这是当前浏览器里的私人文件夹。</p><button onClick={onNewNote} style={{ ...smallToolButton, background: "#2B7FD8", color: "#fff", border: "none" }}>新建便签</button></SystemWindow>;
 }
 
 function SystemWindow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
-  return <div style={{ height: "100%", overflow: "auto", padding: 22, background: dark ? "#1c1c1e" : "#fefcf6", color: dark ? "#fff" : "#1A1A2E", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>{children}</div>;
+  return <div className="ollie-theme-transition" style={{ height: "100%", overflow: "auto", padding: 22, background: dark ? "#1c1c1e" : "var(--ollie-window)", color: dark ? "#fff" : "var(--ollie-text)", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>{children}</div>;
 }
 
 function CalendarWindow() {
@@ -722,35 +651,18 @@ function CalendarWindow() {
   const changeMonth = (delta: number) => setMonth(m => new Date(m.getFullYear(), m.getMonth() + delta, 1));
   return <SystemWindow>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-      <div><div style={{ fontSize: 11, color: "#8A8A9A", textTransform: "uppercase", letterSpacing: 1 }}>Calendar</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>{title}</h2></div>
+      <div><div style={{ fontSize: 11, color: "var(--ollie-muted)", textTransform: "uppercase", letterSpacing: 1 }}>Calendar</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>{title}</h2></div>
       <div style={{ display: "flex", gap: 6 }}><button onClick={() => changeMonth(-1)} style={smallToolButton}>‹</button><button onClick={() => setMonth(new Date(now.getFullYear(), now.getMonth(), 1))} style={smallToolButton}>今天</button><button onClick={() => changeMonth(1)} style={smallToolButton}>›</button></div>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5, textAlign: "center", fontSize: 11 }}>
-      {["日", "一", "二", "三", "四", "五", "六"].map(d => <span key={d} style={{ color: "#8A8A9A", paddingBottom: 6 }}>{d}</span>)}
+      {["日", "一", "二", "三", "四", "五", "六"].map(d => <span key={d} style={{ color: "var(--ollie-muted)", paddingBottom: 6 }}>{d}</span>)}
       {Array.from({ length: first }).map((_, i) => <span key={`empty-${i}`} />)}
       {Array.from({ length: days }, (_, i) => i + 1).map(day => {
         const active = day === selected;
-        return <button key={day} onClick={() => setSelected(day)} style={{ aspectRatio: "1", border: "none", borderRadius: "50%", background: active ? "#2B7FD8" : "transparent", color: active ? "#fff" : "#1A1A2E", cursor: "pointer", fontSize: 12 }}>{day}</button>;
+        return <button key={day} onClick={() => setSelected(day)} style={{ aspectRatio: "1", border: "none", borderRadius: "50%", background: active ? "#2B7FD8" : "transparent", color: active ? "#fff" : "var(--ollie-text)", cursor: "pointer", fontSize: 12 }}>{day}</button>;
       })}
     </div>
-    <div style={{ marginTop: 20, borderTop: "1px solid #e6e3de", paddingTop: 14, color: "#666", fontSize: 12 }}><strong style={{ color: "#1A1A2E" }}>{month.getMonth() + 1} 月 {selected} 日</strong><br />今天没有安排。留一点空间给新的想法。</div>
-  </SystemWindow>;
-}
-
-function MemoWindow({ note, onChange }: { note: LocalNote; onChange: (patch: Partial<LocalNote>) => void }) {
-  const [saved, setSaved] = useState(true);
-  return <SystemWindow>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}><div><div style={{ fontSize: 11, color: "#D4AB22", letterSpacing: 1 }}>MEMO</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>备忘录</h2></div><span style={{ fontSize: 11, color: saved ? "#8A8A9A" : "#E84A5F" }}>{saved ? "已保存" : "未保存"}</span></div>
-    <textarea value={note.body} onChange={e => { onChange({ body: e.target.value, updatedAt: new Date().toISOString() }); setSaved(false); }} onBlur={() => setSaved(true)} style={{ width: "100%", minHeight: 270, resize: "vertical", border: "1px solid #e6e3de", borderRadius: 10, padding: 14, background: "#fffdf8", color: "#333", fontSize: 14, lineHeight: 1.8, outline: "none", fontFamily: "-apple-system,sans-serif" }} />
-  </SystemWindow>;
-}
-
-function WeatherWindow() {
-  const [updated, setUpdated] = useState("刚刚更新");
-  return <SystemWindow>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 11, color: "#2B7FD8", letterSpacing: 1 }}>WEATHER</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>上海</h2></div><button onClick={() => setUpdated("刚刚刷新")} style={smallToolButton}>↻</button></div>
-    <div style={{ margin: "24px 0", padding: 20, borderRadius: 16, background: "linear-gradient(145deg,#61b9f1,#2b7fd8)", color: "#fff" }}><div style={{ fontSize: 48 }}>☀︎</div><div style={{ fontSize: 42, fontWeight: 200 }}>24°</div><div style={{ opacity: 0.8 }}>晴朗 · 体感舒适</div></div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, fontSize: 11, color: "#666" }}>{[["湿度", "56%"], ["风速", "2.4 m/s"], ["空气", "良"]].map(([k, v]) => <div key={k} style={{ padding: 10, background: "#f4f1ec", borderRadius: 8 }}><div>{k}</div><strong style={{ display: "block", color: "#1A1A2E", marginTop: 5 }}>{v}</strong></div>)}</div><div style={{ marginTop: 14, fontSize: 10, color: "#8A8A9A" }}>{updated} · OllieOS demo data</div>
+    <div style={{ marginTop: 20, borderTop: "1px solid var(--ollie-border)", paddingTop: 14, color: "var(--ollie-text-soft)", fontSize: 12 }}><strong style={{ color: "var(--ollie-text)" }}>{month.getMonth() + 1} 月 {selected} 日</strong><br />今天没有安排。留一点空间给新的想法。</div>
   </SystemWindow>;
 }
 
@@ -764,6 +676,7 @@ function CalculatorWindow() {
   const press = (key: string) => setValue(v => {
     if (key === "AC") return "0";
     if (key === "=") {
+      if (!/^[\d+\-*/().\s]+$/.test(v)) return "Error";
       try { return String(Function("return " + v)()); } catch { return "Error"; }
     }
     return v === "0" ? key : v + key;
@@ -773,20 +686,14 @@ function CalculatorWindow() {
 
 function PhotosWindow() {
   const colors = ["#2B7FD8", "#E84A5F", "#F4D758", "#4ade80", "#7c5cff", "#e58c42", "#2e9c9c", "#d85aa0"];
-  return <SystemWindow><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18, alignItems: "center" }}><div><div style={{ fontSize: 11, color: "#B64FD2", letterSpacing: 1 }}>PHOTOS</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>照片</h2></div><span style={{ color: "#8A8A9A", fontSize: 11 }}>Ollie Archive</span></div><div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 9 }}>{colors.map((color, i) => <div key={color} style={{ aspectRatio: "1", borderRadius: 10, background: `linear-gradient(135deg,${color},#1A1A2E)`, display: "flex", alignItems: "flex-end", padding: 9, color: "#fff", fontSize: 11, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>Archive {String(i + 1).padStart(2, "0")}</div>)}</div></SystemWindow>;
-}
-
-function SettingsWindow({ motionOn, setMotionOn }: { motionOn: boolean; setMotionOn: (value: boolean) => void }) {
-  const [dark, setDark] = useState(false);
-  const rows: { label: string; checked: boolean; toggle: () => void }[] = [{ label: "深色外观", checked: dark, toggle: () => setDark(v => !v) }, { label: "减少动态效果", checked: !motionOn, toggle: () => setMotionOn(!motionOn) }];
-  return <SystemWindow><div style={{ fontSize: 11, color: "#8A8A9A", letterSpacing: 1 }}>SYSTEM SETTINGS</div><h2 style={{ margin: "4px 0 20px", fontSize: 22 }}>设置</h2>{rows.map(({ label, checked, toggle }) => <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #e6e3de", fontSize: 14 }}><span>{label}</span><button aria-label={label} onClick={toggle} style={{ width: 42, height: 24, border: "none", borderRadius: 999, background: checked ? "#2B7FD8" : "#c9c9c9", cursor: "pointer", padding: 3, textAlign: checked ? "right" : "left" }}><span style={{ display: "inline-block", width: 18, height: 18, borderRadius: "50%", background: "#fff" }} /></button></div>)}<p style={{ marginTop: 18, color: "#8A8A9A", fontSize: 11, lineHeight: 1.6 }}>这些设置只影响当前浏览器里的 OllieOS 体验。</p></SystemWindow>;
+  return <SystemWindow><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18, alignItems: "center" }}><div><div style={{ fontSize: 11, color: "#B64FD2", letterSpacing: 1 }}>PHOTOS</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>照片</h2></div><span style={{ color: "var(--ollie-muted)", fontSize: 11 }}>Ollie Archive</span></div><div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 9 }}>{colors.map((color, i) => <div key={color} style={{ aspectRatio: "1", borderRadius: 10, background: `linear-gradient(135deg,${color},#1A1A2E)`, display: "flex", alignItems: "flex-end", padding: 9, color: "#fff", fontSize: 11, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>Archive {String(i + 1).padStart(2, "0")}</div>)}</div></SystemWindow>;
 }
 
 function TrashWindow() {
-  return <SystemWindow><div style={{ textAlign: "center", paddingTop: 72, color: "#8A8A9A" }}><TrashIcon /><h2 style={{ color: "#1A1A2E", fontSize: 18, margin: "16px 0 8px" }}>废纸篓是空的</h2><p style={{ fontSize: 12 }}>暂时没有需要清理的东西。</p></div></SystemWindow>;
+  return <SystemWindow><div style={{ textAlign: "center", paddingTop: 72, color: "var(--ollie-muted)" }}><TrashIcon /><h2 style={{ color: "var(--ollie-text)", fontSize: 18, margin: "16px 0 8px" }}>废纸篓是空的</h2><p style={{ fontSize: 12 }}>暂时没有需要清理的东西。</p></div></SystemWindow>;
 }
 
-const smallToolButton: React.CSSProperties = { border: "1px solid #dedbd5", background: "#fffdf8", borderRadius: 7, padding: "5px 9px", color: "#4A4A5A", cursor: "pointer", fontSize: 12 };
+const smallToolButton: React.CSSProperties = { border: "1px solid var(--ollie-border)", background: "var(--ollie-surface)", borderRadius: 7, padding: "5px 9px", color: "var(--ollie-text-soft)", cursor: "pointer", fontSize: 12 };
 const calcButton: React.CSSProperties = { minHeight: 44, border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 16 };
 const TrashIcon = () => <div style={{ width: 54, height: 62, margin: "0 auto", border: "2px solid #aeb3bb", borderTop: "none", borderRadius: "0 0 10px 10px", position: "relative" }}><div style={{ position: "absolute", left: -5, right: -5, top: -7, height: 3, background: "#aeb3bb", borderRadius: 3 }} /><div style={{ position: "absolute", left: 17, top: -15, width: 18, height: 8, border: "2px solid #aeb3bb", borderBottom: "none", borderRadius: "5px 5px 0 0" }} /></div>;
 
@@ -795,9 +702,10 @@ const TrashIcon = () => <div style={{ width: 54, height: 62, margin: "0 auto", b
 // ─────────────────────────────────────────────────────────────────────────────
 interface CtxMenuState { x: number; y: number; }
 
-function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNewNote, onArrange, onRefresh, onAbout }: {
+function ContextMenu({ pos, wallpaper, theme, setWallpaper, onClose, onNewFolder, onNewNote, onArrange, onRefresh, onAbout }: {
   pos: CtxMenuState;
   wallpaper: WallpaperKey;
+  theme: ResolvedTheme;
   setWallpaper: (k: WallpaperKey) => void;
   onClose: () => void;
   onNewFolder: () => void;
@@ -811,14 +719,14 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNew
   useEffect(() => {
     const h = () => onClose();
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    setTimeout(() => { document.addEventListener("click", h); document.addEventListener("keydown", k); }, 10);
-    return () => { document.removeEventListener("click", h); document.removeEventListener("keydown", k); };
+    const id = window.setTimeout(() => { document.addEventListener("click", h); document.addEventListener("keydown", k); }, 10);
+    return () => { window.clearTimeout(id); document.removeEventListener("click", h); document.removeEventListener("keydown", k); };
   }, [onClose]);
 
   const menuStyle: React.CSSProperties = {
     position: "fixed", top: pos.y, left: pos.x, zIndex: 9000,
-    background: "rgba(248,246,242,0.94)", backdropFilter: "blur(24px)",
-    border: "1px solid rgba(0,0,0,0.12)", borderRadius: 10,
+    background: "var(--ollie-menu)", backdropFilter: "blur(24px)",
+    border: "1px solid var(--ollie-border-strong)", borderRadius: 10,
     padding: "4px 0", minWidth: 200,
     boxShadow: "0 10px 40px rgba(0,0,0,0.16)",
     fontFamily: "-apple-system,'SF Pro Text','Helvetica Neue',sans-serif",
@@ -827,9 +735,9 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNew
   const itemStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", gap: 10,
     padding: "6px 14px", cursor: "pointer",
-    color: "#1A1A2E", transition: "background 0.1s",
+    color: "var(--ollie-text)", transition: "background 0.1s",
   };
-  const sepStyle: React.CSSProperties = { height: 1, background: "rgba(0,0,0,0.08)", margin: "4px 0" };
+  const sepStyle: React.CSSProperties = { height: 1, background: "var(--ollie-border)", margin: "4px 0" };
 
   return (
     <div className="ctx-menu" style={menuStyle} onClick={e => e.stopPropagation()}>
@@ -865,8 +773,8 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNew
         {wpOpen && (
           <div style={{
             position: "absolute", left: "100%", top: 0,
-            background: "rgba(248,246,242,0.96)", backdropFilter: "blur(24px)",
-            border: "1px solid rgba(0,0,0,0.12)", borderRadius: 10,
+            background: "var(--ollie-menu)", backdropFilter: "blur(24px)",
+            border: "1px solid var(--ollie-border-strong)", borderRadius: 10,
             padding: "8px", display: "flex", gap: 8,
             boxShadow: "0 10px 40px rgba(0,0,0,0.16)", zIndex: 9001,
           }}>
@@ -876,11 +784,11 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNew
               >
                 <div style={{
                   width: 40, height: 28, borderRadius: 6,
-                  background: WALLPAPERS[k].bg,
+                  background: WALLPAPERS[k][theme],
                   border: k === wallpaper ? "2px solid #2B7FD8" : "2px solid transparent",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
                 }} />
-                <div style={{ fontSize: 9, marginTop: 3, color: "#4A4A5A", fontFamily: "monospace" }}>{WALLPAPERS[k].name}</div>
+                <div style={{ fontSize: 9, marginTop: 3, color: "var(--ollie-text-soft)", fontFamily: "monospace" }}>{WALLPAPERS[k].name}</div>
               </div>
             ))}
           </div>
@@ -896,15 +804,18 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder, onNew
   );
 }
 
-function ItemMenu({ pos, item, onClose, onRename, onDelete }: { pos: CtxMenuState; item: DesktopItem; onClose: () => void; onRename: () => void; onDelete: () => void }) {
+function ItemMenu({ pos, canManage, onClose, onOpen, onRename, onDelete }: { pos: CtxMenuState; canManage: boolean; onClose: () => void; onOpen: () => void; onRename: () => void; onDelete: () => void }) {
   useEffect(() => {
     const close = () => onClose();
-    window.setTimeout(() => document.addEventListener("click", close), 10);
-    return () => document.removeEventListener("click", close);
+    const id = window.setTimeout(() => document.addEventListener("click", close), 10);
+    return () => { window.clearTimeout(id); document.removeEventListener("click", close); };
   }, [onClose]);
-  return <div className="ctx-menu" style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 9001, minWidth: 164, padding: "4px 0", borderRadius: 10, background: "rgba(248,246,242,0.96)", backdropFilter: "blur(24px)", boxShadow: "0 10px 40px rgba(0,0,0,.16)", border: "1px solid rgba(0,0,0,.12)", fontSize: 13 }} onClick={e => e.stopPropagation()}>
-    <button onClick={onRename} style={{ width: "100%", border: "none", textAlign: "left", padding: "7px 14px", background: "transparent", cursor: "pointer", color: "#1A1A2E" }}>重命名</button>
-    <button onClick={onDelete} style={{ width: "100%", border: "none", textAlign: "left", padding: "7px 14px", background: "transparent", cursor: "pointer", color: "#C63D4E" }}>移到废纸篓</button>
+  return <div className="ctx-menu" style={{ position: "fixed", top: pos.y, left: pos.x, zIndex: 9001, minWidth: 164, padding: "4px 0", borderRadius: 10, background: "var(--ollie-menu)", backdropFilter: "blur(24px)", boxShadow: "0 10px 40px var(--ollie-shadow)", border: "1px solid var(--ollie-border-strong)", fontSize: 13 }} onClick={e => e.stopPropagation()}>
+    <button onClick={onOpen} style={{ width: "100%", border: "none", textAlign: "left", padding: "7px 14px", background: "transparent", cursor: "pointer", color: "var(--ollie-text)" }}>打开</button>
+    {canManage && <>
+      <button onClick={onRename} style={{ width: "100%", border: "none", textAlign: "left", padding: "7px 14px", background: "transparent", cursor: "pointer", color: "var(--ollie-text)" }}>重命名</button>
+      <button onClick={onDelete} style={{ width: "100%", border: "none", textAlign: "left", padding: "7px 14px", background: "transparent", cursor: "pointer", color: "#C63D4E" }}>移到废纸篓</button>
+    </>}
   </div>;
 }
 
@@ -1024,8 +935,8 @@ const APP_ART: Record<string, React.ReactNode> = {
   signal: <AppArt emoji="◈" />,
   links: <AppArt emoji="↗" />,
   idea: <FileArt ext="IDEA" color="#F4D758" />,
+  memo: <FileArt ext="MD" color="#2B7FD8" />,
   terminal: <AppArt emoji=">_" />,
-  note: <FileArt ext="MD" color="#2B7FD8" />,
   canvas: <AppArt emoji="✦" />,
   btc: <AppArt emoji="₿" />,
 };
@@ -1033,16 +944,15 @@ const APP_ART: Record<string, React.ReactNode> = {
 const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>> = {
   about:    { id: "about",    title: "About_Ollie",  type: "about",    w: 440, h: 480 },
   music:    { id: "music",    title: "Music",        type: "music",    w: 500, h: 620 },
-  ai:       { id: "ai",       title: "AI_Lab",       type: "ai",       w: 460, h: 440 },
-  now:      { id: "now",      title: "NOW.md",       type: "now",      w: 460, h: 440 },
-  signal:   { id: "signal",   title: "SIGNAL_BOARD", type: "signal",   w: 500, h: 460 },
-  links:    { id: "links",    title: "LINK_LOCKER",  type: "links",    w: 380, h: 410 },
-  idea:     { id: "idea",     title: "IDEA_BOX",     type: "memo",     w: 420, h: 420 },
-  terminal: { id: "terminal", title: "Terminal",     type: "terminal", w: 500, h: 360 },
-  note:     { id: "note",     title: "_notes.md",   type: "note",     w: 440, h: 440 },
+  ai:       { id: "ai",       title: "AI_Lab",       type: "ai",       w: 660, h: 590 },
+  now:      { id: "now",      title: "NOW.md",       type: "now",      w: 540, h: 510 },
+  signal:   { id: "signal",   title: "SIGNAL_BOARD", type: "signal",   w: 650, h: 600 },
+  links:    { id: "links",    title: "LINK_LOCKER",  type: "links",    w: 420, h: 410 },
+  idea:     { id: "idea",     title: "IDEA_BOX",     type: "idea",     w: 610, h: 530 },
+  terminal: { id: "terminal", title: "Ollie Assistant", type: "terminal", w: 580, h: 440 },
   calendar: { id: "calendar", title: "日历",         type: "calendar", w: 380, h: 420 },
-  memo:     { id: "memo",     title: "备忘录",       type: "memo",     w: 420, h: 420 },
-  weather:  { id: "weather",  title: "天气",         type: "weather",  w: 360, h: 450 },
+  memo:     { id: "memo",     title: "备忘录",       type: "memo",     w: 650, h: 520 },
+  weather:  { id: "weather",  title: "天气",         type: "weather",  w: 440, h: 620 },
   clock:    { id: "clock",    title: "时钟",         type: "clock",    w: 360, h: 430 },
   calculator:{ id: "calculator", title: "计算器",     type: "calculator", w: 330, h: 430 },
   photos:   { id: "photos",   title: "照片",         type: "photos",   w: 390, h: 480 },
@@ -1051,11 +961,42 @@ const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>
   btc:      { id: "btc",      title: "BTC 行情",     type: "market",   w: 390, h: 400 },
 };
 
+function loadDesktopState(): DesktopState {
+  const fallback = createDefaultDesktopState();
+  if (typeof window === "undefined") return fallback;
+  try {
+    const currentRaw = window.localStorage.getItem(DESKTOP_STORAGE_KEY);
+    const raw = currentRaw ?? window.localStorage.getItem(LEGACY_DESKTOP_STORAGE_KEY);
+    if (!raw) return fallback;
+    const isCurrentVersion = currentRaw !== null;
+    const saved = JSON.parse(raw) as Partial<DesktopState>;
+    const savedTracks = saved.tracks?.length ? saved.tracks : fallback.tracks;
+    const savedItems: DesktopItem[] = saved.items?.length ? saved.items.map(item => {
+      const starter = fallback.items.find(entry => entry.id === item.id);
+      return starter?.kind === "app" ? { ...item, ...starter, x: item.x, y: item.y } : item;
+    }) : [...fallback.items];
+    fallback.items.forEach(item => { if (!savedItems.some(savedItem => savedItem.id === item.id)) savedItems.push(item); });
+    const tracks = savedTracks.map(track => {
+      const starter = fallback.tracks.find(item => item.id === track.id);
+      const legacyTitle = track.title === "2026年3月31日 demo" || track.title === "2026年4月3日 demo";
+      if (starter && legacyTitle) return { ...track, ...starter, audioUrl: starter.audioUrl };
+      const merged = { ...starter, ...track, audioUrl: track.audioUrl ?? starter?.audioUrl };
+      return merged.audioUrl?.startsWith("blob:") ? { ...merged, audioUrl: undefined } : merged;
+    });
+    const notes = Array.isArray(saved.notes) ? [...saved.notes] : [...fallback.notes];
+    if (!isCurrentVersion) fallback.notes.forEach(note => { if (!notes.some(savedNote => savedNote.id === note.id)) notes.push(note); });
+    const ideas = isCurrentVersion && Array.isArray(saved.ideas) ? saved.ideas : saved.ideas?.length ? saved.ideas : fallback.ideas;
+    return { ...fallback, ...saved, items: savedItems, notes, ideas, tracks, weather: saved.weather ?? fallback.weather };
+  } catch {
+    return fallback;
+  }
+}
+
 export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
+  const { mode, resolvedTheme, setMode } = useTheme();
   const surfaceRef = useRef<HTMLDivElement>(null);
   const time       = useClock();
-  const [desktop, setDesktop] = useState<DesktopState>(() => createDefaultDesktopState());
-  const [hydrated, setHydrated] = useState(false);
+  const [desktop, setDesktop] = useState<DesktopState>(loadDesktopState);
   const [selected,  setSelected]    = useState<string | null>(null);
   const [ctxMenu,   setCtxMenu]     = useState<CtxMenuState | null>(null);
   const [itemMenu, setItemMenu] = useState<{ pos: CtxMenuState; item: DesktopItem } | null>(null);
@@ -1063,49 +1004,12 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
   const [starSeed, setStarSeed] = useState(0);
   const defaultsOpened = useRef(false);
   const { windows, openWindow, closeWindow, bringToFront, updateWindow } = useWindowManager();
-  useStars(surfaceRef, desktop.motionOn, starSeed);
+  useStars(surfaceRef, desktop.motionOn, starSeed, resolvedTheme);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(DESKTOP_STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as Partial<DesktopState>;
-        const fallback = createDefaultDesktopState();
-        const savedTracks = saved.tracks?.length ? saved.tracks : fallback.tracks;
-        const savedItems = saved.items?.length
-          ? saved.items.map(item => {
-              const starter = fallback.items.find(entry => entry.id === item.id);
-              return starter?.kind === "app" ? { ...item, label: starter.label } : item;
-            })
-          : fallback.items;
-        if (!savedItems.some(item => item.id === "btc")) savedItems.push(fallback.items.find(item => item.id === "btc")!);
-        const mergedTracks = savedTracks.map(track => {
-          const starter = fallback.tracks.find(item => item.id === track.id);
-          const legacyTitle = track.title === "2026年3月31日 demo" || track.title === "2026年4月3日 demo";
-          if (starter && legacyTitle) return { ...track, ...starter, audioUrl: starter.audioUrl };
-          return { ...starter, ...track, audioUrl: track.audioUrl ?? starter?.audioUrl };
-        });
-        setDesktop({
-          ...fallback,
-          ...saved,
-          items: savedItems,
-          notes: saved.notes?.length ? saved.notes : fallback.notes,
-          tracks: mergedTracks.map(track => track.audioUrl?.startsWith("blob:") ? { ...track, audioUrl: undefined } : track),
-        });
-      }
-    } catch { /* Fall back to the starter desk when browser storage is unavailable. */ }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (hydrated) {
-      const persistable = {
-        ...desktop,
-        tracks: desktop.tracks.map(track => track.audioUrl?.startsWith("blob:") ? { ...track, audioUrl: undefined } : track),
-      };
-      window.localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(persistable));
-    }
-  }, [desktop, hydrated]);
+    const persistable = { ...desktop, tracks: desktop.tracks.map(track => track.audioUrl?.startsWith("blob:") ? { ...track, audioUrl: undefined } : track) };
+    window.localStorage.setItem(DESKTOP_STORAGE_KEY, JSON.stringify(persistable));
+  }, [desktop]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1126,10 +1030,53 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
     updateDesktop(prev => ({ ...prev, notes: prev.notes.map(note => note.id === id ? { ...note, ...patch } : note) }));
   }, [updateDesktop]);
 
+  const createManagedNote = useCallback((title = "新备忘录", body = "# 新备忘录\n\n把现在的想法留下来。") => {
+    const id = `memo-${Date.now()}`;
+    const note: LocalNote = { id, title, body, updatedAt: new Date().toISOString() };
+    updateDesktop(prev => ({ ...prev, notes: [...prev.notes, note] }));
+    notify("已新建备忘录");
+    return id;
+  }, [notify, updateDesktop]);
+
+  const deleteManagedNote = useCallback((id: string) => {
+    const note = desktop.notes.find(item => item.id === id);
+    if (!note) return;
+    updateDesktop(prev => ({ ...prev, notes: prev.notes.filter(item => item.id !== id) }));
+    notify(`${note.title} 已删除`, () => updateDesktop(prev => ({ ...prev, notes: [...prev.notes, note] })));
+  }, [desktop.notes, notify, updateDesktop]);
+
+  const updateIdea = useCallback((id: string, patch: Partial<IdeaItem>) => {
+    updateDesktop(prev => ({ ...prev, ideas: prev.ideas.map(idea => idea.id === id ? { ...idea, ...patch } : idea) }));
+  }, [updateDesktop]);
+
+  const createIdea = useCallback((title: string) => {
+    const id = `idea-${Date.now()}`;
+    const idea: IdeaItem = { id, title, summary: "补充这个想法为什么值得继续。", status: "seed", tags: ["Idea"], updatedAt: new Date().toISOString() };
+    updateDesktop(prev => ({ ...prev, ideas: [idea, ...prev.ideas] }));
+    notify("灵感已经放进盒子");
+    return id;
+  }, [notify, updateDesktop]);
+
+  const deleteIdea = useCallback((id: string) => {
+    const idea = desktop.ideas.find(item => item.id === id);
+    if (!idea) return;
+    updateDesktop(prev => ({ ...prev, ideas: prev.ideas.filter(item => item.id !== id) }));
+    notify(`${idea.title} 已删除`, () => updateDesktop(prev => ({ ...prev, ideas: [idea, ...prev.ideas] })));
+  }, [desktop.ideas, notify, updateDesktop]);
+
+  const convertIdeaToNote = useCallback((idea: IdeaItem) => {
+    const note: LocalNote = { id: `memo-${Date.now()}`, title: idea.title, body: `# ${idea.title}\n\n${idea.summary}\n\n- 状态：${idea.status}\n- 标签：${idea.tags.join(" / ")}`, updatedAt: new Date().toISOString(), pinned: true };
+    updateDesktop(prev => ({ ...prev, notes: [...prev.notes.map(item => ({ ...item, pinned: false })), note] }));
+    notify("已转换为备忘录");
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("ollie:open-window", { detail: "memo" })), 0);
+  }, [notify, updateDesktop]);
+
   const openCustomWindow = useCallback((id: string, title: string, type: WindowDef["type"], w: number, h: number) => {
     const W = typeof window !== "undefined" ? window.innerWidth : 1200;
     const H = typeof window !== "undefined" ? window.innerHeight : 800;
-    openWindow({ id, title, type, w, h, x: Math.max(96, (W - w) / 2), y: Math.max(48, (H - h) / 2) });
+    const safeW = Math.min(w, W - 20);
+    const safeH = Math.min(h, H - 74);
+    openWindow({ id, title, type, w: safeW, h: safeH, x: Math.max(10, (W - safeW) / 2), y: Math.max(38, (H - safeH) / 2) });
   }, [openWindow]);
 
   const handleOpenIcon = useCallback((id: string) => {
@@ -1138,10 +1085,14 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
     if (!cfg) return;
     const W = typeof window !== "undefined" ? window.innerWidth  : 1200;
     const H = typeof window !== "undefined" ? window.innerHeight : 800;
+    const safeW = Math.min(cfg.w, W - 20);
+    const safeH = Math.min(cfg.h, H - 74);
     openWindow({
       ...cfg,
-      x: Math.max(100, (W - cfg.w) / 2 + (Math.random() - 0.5) * 120),
-      y: Math.max(50,  (H - cfg.h) / 2 + (Math.random() - 0.5) * 80),
+      w: safeW,
+      h: safeH,
+      x: Math.max(10, (W - safeW) / 2 + (Math.random() - 0.5) * Math.min(120, W * .08)),
+      y: Math.max(38, (H - safeH) / 2 + (Math.random() - 0.5) * Math.min(80, H * .06)),
     });
   }, [onGoSystem, openWindow]);
 
@@ -1150,20 +1101,31 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
     defaultsOpened.current = true;
     const W = typeof window !== "undefined" ? window.innerWidth : 1200;
     const H = typeof window !== "undefined" ? window.innerHeight : 800;
+    const about = WIN_CONFIGS.about!;
+    const music = WIN_CONFIGS.music!;
+    const btc = WIN_CONFIGS.btc!;
+    if (W < 900) {
+      const w = Math.max(280, W - 20);
+      const h = Math.max(240, H - 120);
+      openWindow({ ...about, w: Math.min(about.w, w), h: Math.min(about.h, h), x: 10, y: 48 });
+      openWindow({ ...music, w: Math.min(music.w, w), h: Math.min(music.h, h), x: 18, y: 76 });
+      openWindow({ ...btc, w: Math.min(btc.w, w), h: Math.min(btc.h, h), x: 26, y: 104 });
+      return;
+    }
     openWindow({
-      ...WIN_CONFIGS.about!,
+      ...about,
       x: 64,
       y: 72,
     });
     openWindow({
-      ...WIN_CONFIGS.music!,
-      x: Math.max(560, W - 540),
+      ...music,
+      x: Math.min(W - music.w - 20, Math.max(520, W - 540)),
       y: 62,
     });
     openWindow({
-      ...WIN_CONFIGS.btc!,
-      x: Math.max(500, W - 940),
-      y: Math.max(430, H - 410),
+      ...btc,
+      x: Math.min(W - btc.w - 20, Math.max(520, W - 940)),
+      y: Math.max(280, H - btc.h - 180),
     });
   }, [openWindow]);
 
@@ -1198,9 +1160,20 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
   }, [notify, updateDesktop]);
 
   const deleteItem = useCallback((item: DesktopItem) => {
-    updateDesktop(prev => ({ ...prev, items: prev.items.filter(entry => entry.id !== item.id) }));
-    notify(`${item.label} 已移到废纸篓`, () => updateDesktop(prev => ({ ...prev, items: [...prev.items, item] })));
-  }, [notify, updateDesktop]);
+    if (item.kind === "app") return;
+    const note = item.kind === "note" ? desktop.notes.find(entry => entry.id === item.noteId) : undefined;
+    closeWindow(item.id);
+    updateDesktop(prev => ({
+      ...prev,
+      items: prev.items.filter(entry => entry.id !== item.id),
+      notes: note ? prev.notes.filter(entry => entry.id !== note.id) : prev.notes,
+    }));
+    notify(`${item.label} 已移到废纸篓`, () => updateDesktop(prev => ({
+      ...prev,
+      items: [...prev.items, item],
+      notes: note ? [...prev.notes, note] : prev.notes,
+    })));
+  }, [closeWindow, desktop.notes, notify, updateDesktop]);
 
   useEffect(() => {
     const handleDockOpen = (event: Event) => {
@@ -1215,19 +1188,19 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
     switch (win.type) {
       case "about":    return <AboutWindow />;
       case "music":    return <MusicWindow tracks={desktop.tracks} onChange={tracks => updateDesktop(prev => ({ ...prev, tracks }))} />;
-      case "ai":       return <AILabWindow />;
-      case "now":      return <NowWindow />;
-      case "signal":   return <SignalWindow />;
-      case "links":    return <LinksWindow />;
-      case "terminal": return <TerminalWindow />;
-      case "note":     return <NoteWindow />;
+      case "ai":       return <EnhancedAILabWindow />;
+      case "now":      return <EnhancedNowWindow />;
+      case "signal":   return <EnhancedSignalWindow />;
+      case "links":    return <EnhancedLinksWindow notify={notify} />;
+      case "terminal": return <EnhancedTerminalWindow />;
       case "calendar": return <CalendarWindow />;
-      case "memo":     return <MemoWindow note={desktop.notes.find(note => note.id === "idea-box") ?? createDefaultDesktopState().notes[0]} onChange={patch => updateNote("idea-box", patch)} />;
-      case "weather":  return <WeatherWindow />;
+      case "memo":     return <EnhancedMemoWindow notes={desktop.notes} onChange={updateNote} onCreate={createManagedNote} onDelete={deleteManagedNote} />;
+      case "idea":     return <IdeaWindow ideas={desktop.ideas} onChange={updateIdea} onCreate={createIdea} onDelete={deleteIdea} onConvert={convertIdeaToNote} />;
+      case "weather":  return <EnhancedWeatherWindow preference={desktop.weather} onPreferenceChange={weather => updateDesktop(prev => ({ ...prev, weather }))} />;
       case "clock":    return <ClockWindow />;
       case "calculator": return <CalculatorWindow />;
       case "photos":   return <PhotosWindow />;
-      case "settings": return <SettingsWindow motionOn={desktop.motionOn} setMotionOn={motionOn => updateDesktop(prev => ({ ...prev, motionOn }))} />;
+      case "settings": return <EnhancedSettingsWindow motionOn={desktop.motionOn} setMotionOn={motionOn => updateDesktop(prev => ({ ...prev, motionOn }))} />;
       case "trash":    return <TrashWindow />;
       case "market":   return <BtcMarketWindow />;
       case "localNote": {
@@ -1248,26 +1221,29 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
   };
 
   const wp = WALLPAPERS[desktop.wallpaper];
+  const ThemeIcon = mode === "system" ? Monitor : mode === "light" ? Sun : Moon;
+  const nextTheme: Record<ThemeMode, ThemeMode> = { system: "light", light: "dark", dark: "system" };
 
   return (
-    <div className="w-full h-screen flex flex-col" style={{ background: wp.bg, overflow: "hidden" }}>
+    <div className="w-full h-screen flex flex-col ollie-theme-transition" style={{ background: wp[resolvedTheme], overflow: "hidden" }}>
 
       {/* ── macOS Menubar ── */}
-      <div style={{
+      <div className="ollie-menubar" style={{
         height: 30, display: "flex", alignItems: "center",
         padding: "0 16px", gap: 16, flexShrink: 0, zIndex: 800, position: "relative",
-        background: "rgba(43,127,216,0.94)", backdropFilter: "blur(14px)",
+        background: "var(--ollie-menubar)", backdropFilter: "blur(14px)",
         fontFamily: "-apple-system,'SF Pro Text','Helvetica Neue',sans-serif",
         fontSize: 13, color: "rgba(255,255,255,0.92)",
       }}>
         {/* Left: logo + menus */}
         <span style={{ fontFamily: "var(--font-fira-code)", fontSize: 15, fontWeight: 700, color: "#F4D758" }}>OllieOS</span>
         {["文件", "编辑", "显示", "窗口", "帮助"].map(m => (
-          <span key={m} style={{ opacity: 0.55, cursor: "default", fontSize: 13 }}>{m}</span>
+          <span className="ollie-menubar-menu" key={m} style={{ opacity: 0.55, cursor: "default", fontSize: 13 }}>{m}</span>
         ))}
 
         {/* Right: system icons */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+          <button onClick={() => setMode(nextTheme[mode])} aria-label="切换主题" title={mode === "system" ? "跟随系统" : mode === "light" ? "浅色模式" : "深色模式"} style={{ width: 28, height: 26, display: "grid", placeItems: "center", border: 0, borderRadius: 7, background: "rgba(255,255,255,.08)", color: "inherit", cursor: "pointer" }}><ThemeIcon size={14} strokeWidth={1.8} /></button>
           <CtrlCenterIcon />
           <WifiIcon />
           <VolumeIcon />
@@ -1314,6 +1290,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
           <ContextMenu
             pos={ctxMenu}
             wallpaper={desktop.wallpaper}
+            theme={resolvedTheme}
             setWallpaper={wallpaper => { updateDesktop(prev => ({ ...prev, wallpaper })); notify(`已切换到 ${WALLPAPERS[wallpaper].name}`); }}
             onClose={() => setCtxMenu(null)}
             onNewFolder={() => createFolder(ctxMenu)}
@@ -1323,7 +1300,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
             onAbout={() => handleOpenIcon("about")}
           />
         )}
-        {itemMenu && <ItemMenu pos={itemMenu.pos} item={itemMenu.item} onClose={() => setItemMenu(null)} onRename={() => { renameItem(itemMenu.item); setItemMenu(null); }} onDelete={() => { deleteItem(itemMenu.item); setItemMenu(null); }} />}
+        {itemMenu && <ItemMenu pos={itemMenu.pos} canManage={itemMenu.item.kind !== "app"} onClose={() => setItemMenu(null)} onOpen={() => { openItem(itemMenu.item); setItemMenu(null); }} onRename={() => { renameItem(itemMenu.item); setItemMenu(null); }} onDelete={() => { deleteItem(itemMenu.item); setItemMenu(null); }} />}
         {toast && <div role="status" style={{ position: "absolute", right: 18, bottom: 18, zIndex: 9500, display: "flex", alignItems: "center", gap: 10, maxWidth: 300, padding: "10px 12px", borderRadius: 12, background: "rgba(20,29,48,0.86)", color: "#fff", boxShadow: "0 12px 30px rgba(0,0,0,.2)", backdropFilter: "blur(16px)", fontSize: 12 }}><span>{toast.message}</span>{toast.undo && <button onClick={() => { toast.undo?.(); setToast(null); }} style={{ border: "none", borderRadius: 7, padding: "4px 7px", background: "#F4D758", color: "#1A1A2E", cursor: "pointer", fontWeight: 700 }}>撤销</button>}</div>}
       </div>
     </div>

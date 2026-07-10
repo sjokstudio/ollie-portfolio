@@ -19,9 +19,9 @@ interface CanvasData {
 }
 
 const COLOR = {
-  blue:   { border: "#2B7FD8", bg: "#f0f6ff",  tag: "#2B7FD8" },
-  yellow: { border: "#F4D758", bg: "#fffbea",  tag: "#7a6800" },
-  red:    { border: "#E84A5F", bg: "#fff2f4",  tag: "#E84A5F" },
+  blue:   { border: "#2B7FD8", bg: "color-mix(in srgb,#2B7FD8 12%,var(--ollie-surface))", tag: "#2B7FD8" },
+  yellow: { border: "#F4D758", bg: "color-mix(in srgb,#F4D758 14%,var(--ollie-surface))", tag: "#b89400" },
+  red:    { border: "#E84A5F", bg: "color-mix(in srgb,#E84A5F 10%,var(--ollie-surface))", tag: "#E84A5F" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,9 +71,8 @@ function CardNodeEl({ node, selected, scale, onSelect, onMove, onUpdate, onDelet
   const dr = useRef<{ sx: number; sy: number } | null>(null);
   const [editing, setEditing] = useState<"title" | "body" | null>(null);
 
-  useEffect(() => { if (!selected) setEditing(null); }, [selected]);
-
   const COLORS: CardNode["color"][] = ["blue", "yellow", "red"];
+  const activeEditing = selected ? editing : null;
 
   return (
     <div
@@ -106,7 +105,7 @@ function CardNodeEl({ node, selected, scale, onSelect, onMove, onUpdate, onDelet
         <div style={{ position: "absolute", top: -36, left: 0, display: "flex", gap: 5, alignItems: "center" }}>
           {COLORS.map(col => (
             <button key={col} onClick={e => { e.stopPropagation(); onUpdate({ color: col }); }}
-              style={{ width: 14, height: 14, borderRadius: "50%", border: col === node.color ? "2px solid #1A1A2E" : "2px solid transparent", background: COLOR[col].border, cursor: "pointer" }}
+              style={{ width: 14, height: 14, borderRadius: "50%", border: col === node.color ? "2px solid var(--ollie-text)" : "2px solid transparent", background: COLOR[col].border, cursor: "pointer" }}
             />
           ))}
           <button onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -114,15 +113,15 @@ function CardNodeEl({ node, selected, scale, onSelect, onMove, onUpdate, onDelet
         </div>
       )}
       <div style={{ fontFamily: "monospace", fontSize: 10, color: c.tag, marginBottom: 7, letterSpacing: 0.4 }}>{new Date().toISOString().split("T")[0]}</div>
-      {editing === "title" ? (
-        <input autoFocus defaultValue={node.title} onBlur={e => { onUpdate({ title: e.target.value }); setEditing("body"); }} onKeyDown={e => { if (e.key === "Enter") { onUpdate({ title: (e.target as HTMLInputElement).value }); setEditing("body"); } }} style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: "var(--font-fraunces)", fontSize: 15, fontWeight: 700, color: "#1A1A2E", marginBottom: 7 }} />
+      {activeEditing === "title" ? (
+        <input autoFocus defaultValue={node.title} onBlur={e => { onUpdate({ title: e.target.value }); setEditing("body"); }} onKeyDown={e => { if (e.key === "Enter") { onUpdate({ title: (e.target as HTMLInputElement).value }); setEditing("body"); } }} style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: "var(--font-fraunces)", fontSize: 15, fontWeight: 700, color: "var(--ollie-text)", marginBottom: 7 }} />
       ) : (
-        <h3 style={{ fontFamily: "var(--font-fraunces)", fontSize: 15, fontWeight: 700, color: "#1A1A2E", marginBottom: 7, lineHeight: 1.3 }} onDoubleClick={() => setEditing("title")}>{node.title}</h3>
+        <h3 style={{ fontFamily: "var(--font-fraunces)", fontSize: 15, fontWeight: 700, color: "var(--ollie-text)", marginBottom: 7, lineHeight: 1.3 }} onDoubleClick={() => setEditing("title")}>{node.title}</h3>
       )}
-      {editing === "body" ? (
-        <textarea autoFocus defaultValue={node.body} rows={3} onBlur={e => { onUpdate({ body: e.target.value }); setEditing(null); }} style={{ width: "100%", background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: "-apple-system,sans-serif", fontSize: 12, color: "#4A4A5A", lineHeight: 1.65 }} />
+      {activeEditing === "body" ? (
+        <textarea autoFocus defaultValue={node.body} rows={3} onBlur={e => { onUpdate({ body: e.target.value }); setEditing(null); }} style={{ width: "100%", background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: "-apple-system,sans-serif", fontSize: 12, color: "var(--ollie-text-soft)", lineHeight: 1.65 }} />
       ) : (
-        <p style={{ fontSize: 12, color: "#4A4A5A", lineHeight: 1.65, margin: 0 }} onDoubleClick={() => setEditing("body")}>{node.body}</p>
+        <p style={{ fontSize: 12, color: "var(--ollie-text-soft)", lineHeight: 1.65, margin: 0 }} onDoubleClick={() => setEditing("body")}>{node.body}</p>
       )}
     </div>
   );
@@ -188,7 +187,7 @@ function Minimap({ nodes, pan, scale, containerW, containerH, onJump, onDragView
       onClick={handleClick}
       style={{
         width: MAP_W, height: MAP_H, margin: "16px auto", position: "relative",
-        background: "rgba(255,255,255,0.7)", border: "1px solid rgba(26,26,46,0.1)",
+        background: "var(--ollie-surface)", border: "1px solid var(--ollie-border)",
         borderRadius: 8, overflow: "hidden", cursor: "crosshair",
         boxShadow: "inset 0 1px 4px rgba(0,0,0,0.04)",
       }}
@@ -296,6 +295,7 @@ export default function SystemTab() {
     if (e.button === 0) {
       e.preventDefault();
       isPanning.current = true;
+      (e.currentTarget as HTMLElement).style.cursor = "grabbing";
       panStart.current  = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     }
@@ -305,7 +305,7 @@ export default function SystemTab() {
     if (!isPanning.current) return;
     setPan({ x: panStart.current.px + e.clientX - panStart.current.mx, y: panStart.current.py + e.clientY - panStart.current.my });
   };
-  const onCanvasPU = () => { isPanning.current = false; };
+  const onCanvasPU = (e: React.PointerEvent) => { isPanning.current = false; (e.currentTarget as HTMLElement).style.cursor = "grab"; };
   
   const zoomAt = useCallback((clientX: number, clientY: number, deltaY: number) => {
     const delta = Math.exp(-deltaY * 0.005);
@@ -336,20 +336,20 @@ export default function SystemTab() {
   const nodes = activeCanvas.nodes;
 
   return (
-    <div style={{ width: "100%", height: "100vh", display: "flex", overflow: "hidden", background: "#faf6eb", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
+    <div className="ollie-theme-transition" style={{ width: "100%", height: "100vh", display: "flex", overflow: "hidden", background: "var(--ollie-article-paper)", color: "var(--ollie-text)", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>
 
       {/* ── Left Sidebar ── */}
       <div style={{
         width: sidebarW, flexShrink: 0, height: "100%",
-        background: "#f4f1ec", borderRight: "1px solid rgba(26,26,46,0.1)",
+        background: "var(--ollie-surface-soft)", borderRight: "1px solid var(--ollie-border)",
         display: "flex", flexDirection: "column",
         boxShadow: "2px 0 16px rgba(0,0,0,0.03)",
         zIndex: 50,
       }}>
         {/* Header */}
-        <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid rgba(26,26,46,0.08)" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#8A8A9A", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Spaces</div>
-          <div style={{ fontSize: 22, fontWeight: 300, color: "#1A1A2E" }}>Canvases</div>
+        <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid var(--ollie-border)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ollie-muted)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Spaces</div>
+          <div style={{ fontSize: 22, fontWeight: 300, color: "var(--ollie-text)" }}>Canvases</div>
         </div>
 
         {/* Canvas List */}
@@ -360,18 +360,18 @@ export default function SystemTab() {
               <div key={canvas.id} onClick={() => switchCanvas(canvas.id)}
                 style={{
                   display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer",
-                  background: isActive ? "#ffffff" : "transparent",
+                  background: isActive ? "var(--ollie-surface)" : "transparent",
                   boxShadow: isActive ? "0 2px 10px rgba(0,0,0,0.05)" : "none",
                   borderLeft: isActive ? "3px solid #2B7FD8" : "3px solid transparent",
                   transition: "all 0.15s",
                 }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.4)"; }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--ollie-surface-hover)"; }}
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
               >
                 <span style={{ fontSize: 18 }}>{canvas.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: isActive ? "#1A1A2E" : "#4A4A5A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{canvas.name}</div>
-                  <div style={{ fontSize: 10, color: "#8A8A9A", fontFamily: "monospace", marginTop: 2 }}>{canvas.nodes.length} nodes</div>
+                  <div style={{ fontSize: 13, fontWeight: isActive ? 600 : 500, color: isActive ? "var(--ollie-text)" : "var(--ollie-text-soft)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{canvas.name}</div>
+                  <div style={{ fontSize: 10, color: "var(--ollie-muted)", fontFamily: "monospace", marginTop: 2 }}>{canvas.nodes.length} nodes</div>
                 </div>
               </div>
             );
@@ -379,7 +379,7 @@ export default function SystemTab() {
         </div>
 
         {/* Minimap in Sidebar */}
-        <div style={{ padding: "0 12px", borderTop: "1px solid rgba(26,26,46,0.06)", background: "rgba(255,255,255,0.3)" }}>
+        <div style={{ padding: "0 12px", borderTop: "1px solid var(--ollie-border)", background: "var(--ollie-input)" }}>
           <Minimap
             nodes={nodes} pan={pan} scale={scale} containerW={containerSize.w} containerH={containerSize.h}
             onJump={(px, py) => setPan({ x: px, y: py })}
@@ -405,7 +405,7 @@ export default function SystemTab() {
       {/* ── Canvas Area ── */}
       <div
         ref={containerRef}
-        style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning.current ? "grabbing" : "grab", touchAction: "none", overscrollBehavior: "contain" }}
+        style={{ flex: 1, position: "relative", overflow: "hidden", cursor: "grab", touchAction: "none", overscrollBehavior: "contain" }}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPM}
         onPointerUp={onCanvasPU}
@@ -413,7 +413,7 @@ export default function SystemTab() {
         <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
           <defs>
             <pattern id="dot" x={pan.x % (24 * scale)} y={pan.y % (24 * scale)} width={24 * scale} height={24 * scale} patternUnits="userSpaceOnUse">
-              <circle cx={1.5} cy={1.5} r={1} fill="#1A1A2E" opacity={0.12} />
+              <circle cx={1.5} cy={1.5} r={1} fill="var(--ollie-text)" opacity={0.12} />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#dot)" />
@@ -438,19 +438,19 @@ export default function SystemTab() {
         <div style={{
           position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)",
           display: "flex", gap: 12, alignItems: "center", zIndex: 100,
-          background: "rgba(255,255,255,0.95)", backdropFilter: "blur(20px)",
-          border: "1px solid rgba(26,26,46,0.06)", borderRadius: 999,
+          background: "var(--ollie-menu)", backdropFilter: "blur(20px)",
+          border: "1px solid var(--ollie-border)", borderRadius: 999,
           padding: "8px 20px", boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-          fontFamily: "monospace", fontSize: 12, color: "#4A4A5A",
+          fontFamily: "monospace", fontSize: 12, color: "var(--ollie-text-soft)",
         }}>
           <button onClick={addNode} style={{ background: "#1A1A2E", color: "#fff", border: "none", borderRadius: 999, padding: "8px 16px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ color: "#F4D758" }}>＋</span> 新建卡片
           </button>
           <div style={{ width: 1, height: 20, background: "rgba(26,26,46,0.1)" }} />
           <span>{Math.round(scale * 100)}%</span>
-          <button onClick={() => { setScale(0.72); setPan({ x: -1700 + 400, y: -1700 + 300 }); }} style={{ background: "none", border: "1px solid rgba(26,26,46,0.15)", borderRadius: 999, padding: "4px 12px", cursor: "pointer", color: "#4A4A5A" }}>重置视角</button>
+          <button onClick={() => { setScale(0.72); setPan({ x: -1700 + 400, y: -1700 + 300 }); }} style={{ background: "none", border: "1px solid var(--ollie-border-strong)", borderRadius: 999, padding: "4px 12px", cursor: "pointer", color: "var(--ollie-text-soft)" }}>重置视角</button>
           <div style={{ width: 1, height: 20, background: "rgba(26,26,46,0.1)" }} />
-          <span style={{ color: "#8A8A9A", fontSize: 11 }}>鼠标拖拽平移 · 滚轮缩放</span>
+          <span style={{ color: "var(--ollie-muted)", fontSize: 11 }}>鼠标拖拽平移 · 滚轮缩放</span>
         </div>
       </div>
     </div>

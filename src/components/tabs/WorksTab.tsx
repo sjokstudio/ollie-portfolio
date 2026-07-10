@@ -66,7 +66,9 @@ class AudioEngine {
 
   init() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextConstructor) return;
+      this.ctx = new AudioContextConstructor();
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 0.8;
       this.masterGain.connect(this.ctx.destination);
@@ -284,6 +286,7 @@ export default function WorksTab() {
   const [tracks, setTracks] = useState<TrackData[]>(INITIAL_TRACKS);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0); // in bars
+  const playheadRef = useRef(0);
   const [referenceUrl, setReferenceUrl] = useState<string | null>(null);
   const reqRef = useRef<number | null>(null);
   const referenceAudioRef = useRef<HTMLAudioElement>(null);
@@ -293,15 +296,17 @@ export default function WorksTab() {
     if (audio) audio.updateTracks(tracks);
   }, [tracks]);
 
+  useEffect(() => { playheadRef.current = playhead; }, [playhead]);
+
   // Handle play/stop logic
   useEffect(() => {
     if (playing) {
       if (referenceUrl && referenceAudioRef.current) {
-        referenceAudioRef.current.currentTime = playhead / BARS_PER_SECOND;
+        referenceAudioRef.current.currentTime = playheadRef.current / BARS_PER_SECOND;
         void referenceAudioRef.current.play();
       } else if (audio) {
         audio.init(); // Must be called from user interaction first time
-        audio.start(playhead);
+        audio.start(playheadRef.current);
       }
 
       let lastTime = performance.now();

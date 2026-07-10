@@ -12,7 +12,6 @@ export default function TerminalIntro({
   isLaunched: boolean;
 }) {
   const [lines, setLines] = useState<number>(0);
-  const [showProgress, setShowProgress] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const script = [
@@ -32,8 +31,8 @@ export default function TerminalIntro({
 
   useEffect(() => {
     if (typingDone) {
-      setLines(script.length);
-      return;
+      const id = window.setTimeout(() => setLines(script.length), 0);
+      return () => window.clearTimeout(id);
     }
 
     let currentLine = 0;
@@ -47,17 +46,17 @@ export default function TerminalIntro({
     }, 400);
 
     return () => clearInterval(interval);
-  }, [typingDone]);
+  }, [typingDone, script.length]);
 
   useEffect(() => {
-    if (isLaunched && !showProgress) {
-      setShowProgress(true);
+    if (isLaunched) {
       let p = 0;
       const int = setInterval(() => {
         p += 10;
         setProgress(p);
         if (p >= 100) clearInterval(int);
       }, 100);
+      return () => clearInterval(int);
     }
   }, [isLaunched]);
 
@@ -105,7 +104,7 @@ export default function TerminalIntro({
         )}
       </AnimatePresence>
 
-      {showProgress && (
+      {isLaunched && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import BootLogin from "@/components/BootLogin";
 import DesktopOS from "@/components/desktop/DesktopOS";

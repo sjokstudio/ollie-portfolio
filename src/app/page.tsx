@@ -14,6 +14,9 @@ export default function Home() {
 
   // Listen for hash changes to sync tabs, like the original
   useEffect(() => {
+    const launchTimer = window.setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("desktop") === "1") setIsLaunched(true);
+    }, 0);
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "");
       if (["home", "works", "system"].includes(hash)) {
@@ -30,7 +33,7 @@ export default function Home() {
     }
     
     window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    return () => { window.clearTimeout(launchTimer); window.removeEventListener("hashchange", handleHashChange); };
   }, []);
 
   const handleTabChange = (tab: TabType) => {

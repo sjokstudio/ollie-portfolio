@@ -65,6 +65,7 @@ export function PillNav({
 
   return (
     <nav
+      className="ollie-dock"
       aria-label="OllieOS Dock"
       style={{
         position: "fixed",
@@ -80,14 +81,14 @@ export function PillNav({
         // Keep the dock from becoming a scrollport that clips magnified icons.
         overflow: "visible",
         scrollbarWidth: "none",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.3), rgba(235,240,248,0.14))",
+        background: "var(--ollie-dock)",
         backdropFilter: "blur(30px) saturate(170%)",
         WebkitBackdropFilter: "blur(30px) saturate(170%)",
-        border: "1px solid rgba(255,255,255,0.34)",
+        border: "1px solid var(--ollie-border-strong)",
         borderRadius: 24,
         // Keep a real buffer above the dock: scaled icons grow upward from their bottom edge.
         padding: "24px 11px 7px",
-        boxShadow: "0 18px 55px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.34)",
+        boxShadow: "0 18px 55px var(--ollie-shadow), inset 0 1px 0 rgba(255,255,255,0.24)",
       }}
     >
       {ITEMS.map((item, index) => {
@@ -102,6 +103,7 @@ export function PillNav({
           <div key={item.id} style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
             {showDivider && <span aria-hidden="true" style={{ width: 1, height: 38, marginBottom: 5, background: "rgba(255,255,255,0.3)" }} />}
             <button
+              className="ollie-dock-button"
               aria-label={item.label}
               title={item.label}
               onClick={() => openItem(item)}

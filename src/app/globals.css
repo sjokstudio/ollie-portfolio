@@ -25,12 +25,65 @@
   --font-mono: var(--font-fira-code);
 }
 
-:root {
-  --background: #0d1117;
-  --foreground: #faf6eb;
-  
+:root,
+[data-theme="dark"] {
+  --background: #08101c;
+  --foreground: #f4f7fb;
   --terminal-bg: #0f1115;
-  --terminal-text: #4ade80;
+  --terminal-text: #79e6a3;
+  --ollie-desktop: #081a30;
+  --ollie-menubar: rgba(8, 25, 47, 0.88);
+  --ollie-menubar-text: rgba(244, 247, 251, 0.9);
+  --ollie-window: rgba(18, 28, 43, 0.97);
+  --ollie-titlebar: rgba(28, 40, 58, 0.98);
+  --ollie-surface: #131f30;
+  --ollie-surface-soft: #1a2940;
+  --ollie-surface-hover: #223550;
+  --ollie-text: #f3f6fb;
+  --ollie-text-soft: #c3ccda;
+  --ollie-muted: #8e9aad;
+  --ollie-border: rgba(210, 225, 244, 0.14);
+  --ollie-border-strong: rgba(210, 225, 244, 0.24);
+  --ollie-input: rgba(7, 16, 29, 0.7);
+  --ollie-shadow: rgba(0, 0, 0, 0.42);
+  --ollie-dock: linear-gradient(180deg, rgba(42, 60, 84, 0.74), rgba(15, 27, 44, 0.7));
+  --ollie-menu: rgba(20, 31, 48, 0.96);
+  --ollie-article-bg: #0c1523;
+  --ollie-article-paper: #121e2f;
+  --ollie-grid-dot: rgba(231, 238, 248, 0.14);
+  --ollie-boot-bg: linear-gradient(180deg,#080b11 0%,#111927 100%);
+  --ollie-login-bg: linear-gradient(160deg,#071526 0%,#15172b 45%,#0e335d 100%);
+  --ollie-boot-muted: rgba(255,255,255,0.38);
+}
+
+[data-theme="light"] {
+  --background: #eaf4ff;
+  --foreground: #182238;
+  --terminal-bg: #10151d;
+  --terminal-text: #62d890;
+  --ollie-desktop: #2b7fd8;
+  --ollie-menubar: rgba(35, 116, 203, 0.9);
+  --ollie-menubar-text: rgba(255, 255, 255, 0.94);
+  --ollie-window: rgba(254, 252, 246, 0.98);
+  --ollie-titlebar: rgba(238, 236, 232, 0.98);
+  --ollie-surface: #fffdf8;
+  --ollie-surface-soft: #f3f0ea;
+  --ollie-surface-hover: #e8f2ff;
+  --ollie-text: #1a1a2e;
+  --ollie-text-soft: #4a5365;
+  --ollie-muted: #7c8493;
+  --ollie-border: rgba(26, 34, 56, 0.12);
+  --ollie-border-strong: rgba(26, 34, 56, 0.2);
+  --ollie-input: rgba(255, 255, 255, 0.78);
+  --ollie-shadow: rgba(20, 39, 68, 0.2);
+  --ollie-dock: linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(224, 236, 250, 0.3));
+  --ollie-menu: rgba(250, 248, 244, 0.96);
+  --ollie-article-bg: #eaf4ff;
+  --ollie-article-paper: #fffdf8;
+  --ollie-grid-dot: rgba(26, 34, 56, 0.14);
+  --ollie-boot-bg: linear-gradient(180deg,#ddebfb 0%,#bcd7f5 100%);
+  --ollie-login-bg: linear-gradient(160deg,#b9dcff 0%,#7eb8ec 48%,#438dcc 100%);
+  --ollie-boot-muted: rgba(18,40,77,0.58);
 }
 
 body {
@@ -38,6 +91,22 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
   overflow-x: hidden;
+  transition: background-color 220ms ease, color 220ms ease;
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #f4d758;
+  outline-offset: 2px;
 }
 
 /* Scrollbar */
@@ -164,6 +233,142 @@ body {
   outline: 2px solid #f4d758;
   outline-offset: 6px;
   border-radius: 999px;
+}
+
+.ollie-theme-transition,
+.os-win,
+.ctx-menu {
+  transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.weather-spin { animation: weatherSpin 900ms linear infinite; }
+@keyframes weatherSpin { to { transform: rotate(360deg); } }
+
+@media (max-width: 620px) {
+  .ollie-menubar-menu { display: none; }
+  .ollie-menubar { gap: 8px !important; padding-inline: 10px !important; }
+
+  .ollie-dock {
+    width: calc(100vw - 16px);
+    justify-content: flex-start;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 8px 8px 5px !important;
+    border-radius: 18px !important;
+    scrollbar-width: none;
+  }
+
+  .ollie-dock::-webkit-scrollbar { display: none; }
+  .ollie-dock-button { transform: none !important; }
+
+  .ollie-now-grid,
+  .ollie-signal-grid,
+  .ollie-idea-layout,
+  .memo-window > div {
+    grid-template-columns: 1fr !important;
+  }
+
+  .memo-window aside {
+    max-height: 180px;
+    padding-right: 0 !important;
+    padding-bottom: 12px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--ollie-border);
+    overflow: auto;
+  }
+
+  .ollie-lab-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+.ollie-article-shell {
+  min-height: 100dvh;
+  background: var(--ollie-article-bg);
+  color: var(--ollie-text);
+  transition: background-color 220ms ease, color 220ms ease;
+}
+
+.ollie-article-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--ollie-border);
+  background: color-mix(in srgb, var(--ollie-article-bg) 82%, transparent);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+
+.ollie-article-main {
+  width: min(100% - 40px, 900px);
+  margin: 0 auto;
+  padding: 72px 0 120px;
+}
+
+.ollie-article-paper {
+  padding: clamp(28px, 6vw, 72px);
+  border: 1px solid var(--ollie-border);
+  border-radius: 18px;
+  background: var(--ollie-article-paper);
+  box-shadow: 0 28px 80px var(--ollie-shadow);
+}
+
+.ollie-article-title {
+  max-width: 760px;
+  margin: 18px 0 20px;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(42px, 8vw, 82px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+.ollie-article-lead {
+  max-width: 700px;
+  margin: 0 0 48px;
+  color: var(--ollie-text-soft);
+  font-size: clamp(18px, 2.5vw, 23px);
+  line-height: 1.72;
+}
+
+.ollie-article-section {
+  max-width: 700px;
+  margin: 0 auto 48px;
+}
+
+.ollie-article-section h2 {
+  margin: 0 0 18px;
+  font-family: var(--font-fraunces), serif;
+  font-size: clamp(25px, 4vw, 34px);
+  line-height: 1.22;
+}
+
+.ollie-article-section p {
+  margin: 0 0 18px;
+  color: var(--ollie-text-soft);
+  font-size: 17px;
+  line-height: 1.95;
+}
+
+.ollie-article-quote {
+  margin: 34px 0;
+  padding: 22px 24px;
+  border-left: 4px solid #f4d758;
+  background: var(--ollie-surface-soft);
+  color: var(--ollie-text);
+  font-family: var(--font-fraunces), serif;
+  font-size: 22px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .ollie-article-nav { min-height: 56px; padding: 0 16px; }
+  .ollie-article-main { width: min(100% - 20px, 900px); padding: 24px 0 80px; }
+  .ollie-article-paper { padding: 26px 20px 38px; border-radius: 14px; }
+  .ollie-article-title { font-size: 42px; }
+  .ollie-article-lead { font-size: 18px; margin-bottom: 38px; }
+  .ollie-article-section p { font-size: 16px; line-height: 1.86; }
 }
 
 @media (prefers-reduced-motion: reduce) {

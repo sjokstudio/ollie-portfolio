@@ -38,6 +38,12 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
   const [hovered, setHovered] = useState(false);
   const clock = useLiveClock();
 
+  const doEnter = useCallback(() => {
+    if (phase === "entering") return;
+    setPhase("entering");
+    setTimeout(() => onEnter(), 380);
+  }, [phase, onEnter]);
+
   /* ── Boot animation ── */
   useEffect(() => {
     if (phase !== "booting") return;
@@ -65,16 +71,12 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
   /* ── Countdown ── */
   useEffect(() => {
     if (phase !== "login") return;
-    if (countdown <= 0) { doEnter(); return; }
-    const id = setTimeout(() => setCountdown(c => c - 1), 1000);
+    const id = setTimeout(() => {
+      if (countdown <= 0) doEnter();
+      else setCountdown(c => c - 1);
+    }, countdown <= 0 ? 0 : 1000);
     return () => clearTimeout(id);
-  }, [phase, countdown]);
-
-  const doEnter = useCallback(() => {
-    if (phase === "entering") return;
-    setPhase("entering");
-    setTimeout(() => onEnter(), 380);
-  }, [phase, onEnter]);
+  }, [phase, countdown, doEnter]);
 
   /* ── SVG ring maths ── */
   const R = 58;
@@ -88,7 +90,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "linear-gradient(180deg,#0a0a0c 0%,#111318 100%)",
+        background: "var(--ollie-boot-bg)",
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         fontFamily: "-apple-system,'SF Pro Display','Helvetica Neue',sans-serif",
@@ -119,7 +121,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
           height: 18, overflow: "hidden",
           fontFamily: "'SF Mono','Fira Code',monospace",
           fontSize: 11, letterSpacing: 0.4,
-          color: "rgba(255,255,255,0.38)",
+          color: "var(--ollie-boot-muted)",
           transition: "opacity 0.3s",
         }}>
           {BOOT_STEPS[msgIdx]?.text}
@@ -134,7 +136,7 @@ export default function BootLogin({ onEnter }: { onEnter: () => void }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "linear-gradient(160deg,#0d1b2a 0%,#1a1a2e 40%,#16213e 70%,#0f3460 100%)",
+      background: "var(--ollie-login-bg)",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       fontFamily: "-apple-system,'SF Pro Display','Helvetica Neue',sans-serif",
