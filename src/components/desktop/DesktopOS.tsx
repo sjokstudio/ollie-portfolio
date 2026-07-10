@@ -7,7 +7,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 export interface WindowDef {
   id: string;
   title: string;
-  type: "about" | "music" | "ai" | "terminal" | "note";
+  type: "about" | "music" | "ai" | "terminal" | "note" | "calendar" | "memo" | "weather" | "clock" | "calculator" | "photos" | "settings" | "trash";
   zIndex: number;
   minimized?: boolean;
   x: number; y: number; w: number; h: number;
@@ -455,6 +455,90 @@ function AILabWindow() {
   );
 }
 
+function SystemWindow({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
+  return <div style={{ height: "100%", overflow: "auto", padding: 22, background: dark ? "#1c1c1e" : "#fefcf6", color: dark ? "#fff" : "#1A1A2E", fontFamily: "-apple-system,'SF Pro Text',sans-serif" }}>{children}</div>;
+}
+
+function CalendarWindow() {
+  const now = new Date();
+  const [month, setMonth] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+  const [selected, setSelected] = useState(now.getDate());
+  const first = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const title = month.toLocaleDateString("zh-CN", { year: "numeric", month: "long" });
+  const changeMonth = (delta: number) => setMonth(m => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+  return <SystemWindow>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+      <div><div style={{ fontSize: 11, color: "#8A8A9A", textTransform: "uppercase", letterSpacing: 1 }}>Calendar</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>{title}</h2></div>
+      <div style={{ display: "flex", gap: 6 }}><button onClick={() => changeMonth(-1)} style={smallToolButton}>‹</button><button onClick={() => setMonth(new Date(now.getFullYear(), now.getMonth(), 1))} style={smallToolButton}>今天</button><button onClick={() => changeMonth(1)} style={smallToolButton}>›</button></div>
+    </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5, textAlign: "center", fontSize: 11 }}>
+      {["日", "一", "二", "三", "四", "五", "六"].map(d => <span key={d} style={{ color: "#8A8A9A", paddingBottom: 6 }}>{d}</span>)}
+      {Array.from({ length: first }).map((_, i) => <span key={`empty-${i}`} />)}
+      {Array.from({ length: days }, (_, i) => i + 1).map(day => {
+        const active = day === selected;
+        return <button key={day} onClick={() => setSelected(day)} style={{ aspectRatio: "1", border: "none", borderRadius: "50%", background: active ? "#2B7FD8" : "transparent", color: active ? "#fff" : "#1A1A2E", cursor: "pointer", fontSize: 12 }}>{day}</button>;
+      })}
+    </div>
+    <div style={{ marginTop: 20, borderTop: "1px solid #e6e3de", paddingTop: 14, color: "#666", fontSize: 12 }}><strong style={{ color: "#1A1A2E" }}>{month.getMonth() + 1} 月 {selected} 日</strong><br />今天没有安排。留一点空间给新的想法。</div>
+  </SystemWindow>;
+}
+
+function MemoWindow() {
+  const [text, setText] = useState("把想法留下来，之后再慢慢完成。\n\n- AI workflow\n- 新的音乐片段\n- 下一篇 X 文章");
+  const [saved, setSaved] = useState(true);
+  return <SystemWindow>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}><div><div style={{ fontSize: 11, color: "#D4AB22", letterSpacing: 1 }}>MEMO</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>备忘录</h2></div><span style={{ fontSize: 11, color: saved ? "#8A8A9A" : "#E84A5F" }}>{saved ? "已保存" : "未保存"}</span></div>
+    <textarea value={text} onChange={e => { setText(e.target.value); setSaved(false); }} onBlur={() => setSaved(true)} style={{ width: "100%", minHeight: 270, resize: "vertical", border: "1px solid #e6e3de", borderRadius: 10, padding: 14, background: "#fffdf8", color: "#333", fontSize: 14, lineHeight: 1.8, outline: "none", fontFamily: "-apple-system,sans-serif" }} />
+  </SystemWindow>;
+}
+
+function WeatherWindow() {
+  const [updated, setUpdated] = useState("刚刚更新");
+  return <SystemWindow>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><div><div style={{ fontSize: 11, color: "#2B7FD8", letterSpacing: 1 }}>WEATHER</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>上海</h2></div><button onClick={() => setUpdated("刚刚刷新")} style={smallToolButton}>↻</button></div>
+    <div style={{ margin: "24px 0", padding: 20, borderRadius: 16, background: "linear-gradient(145deg,#61b9f1,#2b7fd8)", color: "#fff" }}><div style={{ fontSize: 48 }}>☀︎</div><div style={{ fontSize: 42, fontWeight: 200 }}>24°</div><div style={{ opacity: 0.8 }}>晴朗 · 体感舒适</div></div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, fontSize: 11, color: "#666" }}>{[["湿度", "56%"], ["风速", "2.4 m/s"], ["空气", "良"]].map(([k, v]) => <div key={k} style={{ padding: 10, background: "#f4f1ec", borderRadius: 8 }}><div>{k}</div><strong style={{ display: "block", color: "#1A1A2E", marginTop: 5 }}>{v}</strong></div>)}</div><div style={{ marginTop: 14, fontSize: 10, color: "#8A8A9A" }}>{updated} · OllieOS demo data</div>
+  </SystemWindow>;
+}
+
+function ClockWindow() {
+  const time = useClock();
+  return <SystemWindow dark><div style={{ textAlign: "center", paddingTop: 36 }}><div style={{ fontSize: 64, fontWeight: 200, letterSpacing: -3 }}>{time}</div><div style={{ marginTop: 10, color: "#8A8A9A" }}>{new Date().toLocaleDateString("zh-CN", { weekday: "long", month: "long", day: "numeric" })}</div><div style={{ margin: "48px auto 0", width: 150, height: 150, borderRadius: "50%", border: "1px solid #34343a", position: "relative" }}><span style={{ position: "absolute", left: "50%", top: "50%", width: 3, height: 55, borderRadius: 3, background: "#F4D758", transformOrigin: "50% 100%", transform: "translate(-50%,-100%) rotate(35deg)" }} /><span style={{ position: "absolute", left: "50%", top: "50%", width: 2, height: 42, borderRadius: 3, background: "#fff", transformOrigin: "50% 100%", transform: "translate(-50%,-100%) rotate(145deg)" }} /></div></div></SystemWindow>;
+}
+
+function CalculatorWindow() {
+  const [value, setValue] = useState("0");
+  const press = (key: string) => setValue(v => {
+    if (key === "AC") return "0";
+    if (key === "=") {
+      try { return String(Function("return " + v)()); } catch { return "Error"; }
+    }
+    return v === "0" ? key : v + key;
+  });
+  return <SystemWindow dark><div style={{ textAlign: "right", fontSize: 34, minHeight: 54, padding: "12px 8px", overflow: "hidden" }}>{value}</div><div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>{["AC", "(", ")", "/", "7", "8", "9", "*", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "="].map(key => <button key={key} onClick={() => press(key)} style={{ ...calcButton, gridColumn: key === "0" ? "span 2" : undefined, background: ["/", "*", "-", "+", "="].includes(key) ? "#2B7FD8" : "#34343a" }}>{key}</button>)}</div></SystemWindow>;
+}
+
+function PhotosWindow() {
+  const colors = ["#2B7FD8", "#E84A5F", "#F4D758", "#4ade80", "#7c5cff", "#e58c42", "#2e9c9c", "#d85aa0"];
+  return <SystemWindow><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18, alignItems: "center" }}><div><div style={{ fontSize: 11, color: "#B64FD2", letterSpacing: 1 }}>PHOTOS</div><h2 style={{ margin: "4px 0 0", fontSize: 22 }}>照片</h2></div><span style={{ color: "#8A8A9A", fontSize: 11 }}>Ollie Archive</span></div><div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 9 }}>{colors.map((color, i) => <div key={color} style={{ aspectRatio: "1", borderRadius: 10, background: `linear-gradient(135deg,${color},#1A1A2E)`, display: "flex", alignItems: "flex-end", padding: 9, color: "#fff", fontSize: 11, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>Archive {String(i + 1).padStart(2, "0")}</div>)}</div></SystemWindow>;
+}
+
+function SettingsWindow() {
+  const [dark, setDark] = useState(false);
+  const [motionOn, setMotionOn] = useState(true);
+  const rows: { label: string; checked: boolean; setter: React.Dispatch<React.SetStateAction<boolean>> }[] = [{ label: "深色外观", checked: dark, setter: setDark }, { label: "动效", checked: motionOn, setter: setMotionOn }];
+  return <SystemWindow><div style={{ fontSize: 11, color: "#8A8A9A", letterSpacing: 1 }}>SYSTEM SETTINGS</div><h2 style={{ margin: "4px 0 20px", fontSize: 22 }}>设置</h2>{rows.map(({ label, checked, setter }) => <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #e6e3de", fontSize: 14 }}><span>{label}</span><button onClick={() => setter(!checked)} style={{ width: 42, height: 24, border: "none", borderRadius: 999, background: checked ? "#2B7FD8" : "#c9c9c9", cursor: "pointer", padding: 3, textAlign: checked ? "right" : "left" }}><span style={{ display: "inline-block", width: 18, height: 18, borderRadius: "50%", background: "#fff" }} /></button></div>)}<p style={{ marginTop: 18, color: "#8A8A9A", fontSize: 11, lineHeight: 1.6 }}>这些设置只影响当前浏览器里的 OllieOS 体验。</p></SystemWindow>;
+}
+
+function TrashWindow() {
+  return <SystemWindow><div style={{ textAlign: "center", paddingTop: 72, color: "#8A8A9A" }}><TrashIcon /><h2 style={{ color: "#1A1A2E", fontSize: 18, margin: "16px 0 8px" }}>废纸篓是空的</h2><p style={{ fontSize: 12 }}>暂时没有需要清理的东西。</p></div></SystemWindow>;
+}
+
+const smallToolButton: React.CSSProperties = { border: "1px solid #dedbd5", background: "#fffdf8", borderRadius: 7, padding: "5px 9px", color: "#4A4A5A", cursor: "pointer", fontSize: 12 };
+const calcButton: React.CSSProperties = { minHeight: 44, border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 16 };
+const TrashIcon = () => <div style={{ width: 54, height: 62, margin: "0 auto", border: "2px solid #aeb3bb", borderTop: "none", borderRadius: "0 0 10px 10px", position: "relative" }}><div style={{ position: "absolute", left: -5, right: -5, top: -7, height: 3, background: "#aeb3bb", borderRadius: 3 }} /><div style={{ position: "absolute", left: 17, top: -15, width: 18, height: 8, border: "2px solid #aeb3bb", borderBottom: "none", borderRadius: "5px 5px 0 0" }} /></div>;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Context Menu
 // ─────────────────────────────────────────────────────────────────────────────
@@ -559,23 +643,30 @@ function ContextMenu({ pos, wallpaper, setWallpaper, onClose, onNewFolder }: {
 // ─────────────────────────────────────────────────────────────────────────────
 // Draggable Sticker
 // ─────────────────────────────────────────────────────────────────────────────
-function StickerEl() {
+function PetEl() {
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [message, setMessage] = useState("今天也要留点时间给自己。");
+  const [patCount, setPatCount] = useState(0);
   const dr = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
   return (
     <div
+      role="button"
+      aria-label="Ollie 桌面宠物"
+      title="点击互动，拖动移动"
+      onClick={e => { e.stopPropagation(); const count = patCount + 1; setPatCount(count); setMessage(count % 3 === 0 ? "被摸到了。再来一下？" : "嗯，我在这里。"); }}
       onPointerDown={e => { e.stopPropagation(); dr.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y }; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }}
       onPointerMove={e => { if (!dr.current) return; setPos({ x: dr.current.px + e.clientX - dr.current.sx, y: dr.current.py + e.clientY - dr.current.sy }); }}
-      onPointerUp={() => { dr.current = null; }}
+      onPointerUp={() => { dr.current = null; setMessage("拖到你喜欢的位置吧。"); }}
       style={{
         position: "absolute", bottom: 60, right: "18%",
         transform: `translate(${pos.x}px,${pos.y}px)`,
-        cursor: "grab", userSelect: "none", zIndex: 5, touchAction: "none",
+        cursor: "grab", userSelect: "none", zIndex: 5, touchAction: "none", width: 148,
       }}
     >
-      <div style={{ width: 110, height: 130, background: "linear-gradient(135deg,#1E5BA8,#2B7FD8)", borderRadius: 18, boxShadow: "0 8px 28px rgba(0,0,0,0.28)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "2px solid rgba(244,215,88,0.35)", gap: 8 }}>
-        <div style={{ fontSize: 46 }}>🤖</div>
-        <div style={{ fontFamily: "monospace", fontSize: 9, color: "#F4D758", letterSpacing: 1 }}>OLLIE.</div>
+      <div style={{ position: "absolute", right: 0, top: -42, maxWidth: 138, padding: "7px 10px", borderRadius: 12, background: "rgba(255,255,255,0.9)", color: "#1A1A2E", fontSize: 10, lineHeight: 1.4, boxShadow: "0 5px 18px rgba(0,0,0,0.14)" }}>{message}</div>
+      <div style={{ width: 104, height: 118, background: "linear-gradient(145deg,#2c88e3,#1455a0)", borderRadius: 24, boxShadow: "0 10px 28px rgba(0,0,0,0.28)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "2px solid rgba(244,215,88,0.45)", gap: 7, transition: "transform 180ms ease" }}>
+        <div style={{ fontSize: 44, filter: "drop-shadow(0 4px 4px rgba(0,0,0,0.2))" }}>🤖</div>
+        <div style={{ fontFamily: "monospace", fontSize: 9, color: "#F4D758", letterSpacing: 1 }}>OLLIE PET</div>
       </div>
     </div>
   );
@@ -635,6 +726,14 @@ const WIN_CONFIGS: Partial<Record<string, Omit<WindowDef, "zIndex" | "x" | "y">>
   ai:       { id: "ai",       title: "AI_Lab",       type: "ai",       w: 460, h: 440 },
   terminal: { id: "terminal", title: "Terminal",     type: "terminal", w: 500, h: 360 },
   note:     { id: "note",     title: "_notes.md",   type: "note",     w: 440, h: 440 },
+  calendar: { id: "calendar", title: "日历",         type: "calendar", w: 380, h: 420 },
+  memo:     { id: "memo",     title: "备忘录",       type: "memo",     w: 420, h: 420 },
+  weather:  { id: "weather",  title: "天气",         type: "weather",  w: 360, h: 450 },
+  clock:    { id: "clock",    title: "时钟",         type: "clock",    w: 360, h: 430 },
+  calculator:{ id: "calculator", title: "计算器",     type: "calculator", w: 330, h: 430 },
+  photos:   { id: "photos",   title: "照片",         type: "photos",   w: 390, h: 480 },
+  settings: { id: "settings", title: "设置",         type: "settings", w: 380, h: 420 },
+  trash:    { id: "trash",    title: "废纸篓",       type: "trash",    w: 340, h: 330 },
 };
 
 export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
@@ -676,6 +775,14 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
       case "ai":       return <AILabWindow />;
       case "terminal": return <TerminalWindow />;
       case "note":     return <NoteWindow />;
+      case "calendar": return <CalendarWindow />;
+      case "memo":     return <MemoWindow />;
+      case "weather":  return <WeatherWindow />;
+      case "clock":    return <ClockWindow />;
+      case "calculator": return <CalculatorWindow />;
+      case "photos":   return <PhotosWindow />;
+      case "settings": return <SettingsWindow />;
+      case "trash":    return <TrashWindow />;
       default:         return null;
     }
   };
@@ -716,7 +823,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
         onClick={() => { setSelected(null); setCtxMenu(null); }}
         onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
       >
-        <StickerEl />
+        <PetEl />
 
         {/* Icons */}
         {ICONS.map((icon, i) => (
