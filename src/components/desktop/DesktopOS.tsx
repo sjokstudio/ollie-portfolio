@@ -647,7 +647,7 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
   const [ctxMenu,   setCtxMenu]     = useState<CtxMenuState | null>(null);
   const { windows, openWindow, closeWindow, bringToFront, updateWindow } = useWindowManager();
 
-  const handleOpenIcon = (id: string) => {
+  const handleOpenIcon = useCallback((id: string) => {
     if (id === "canvas") { onGoSystem(); return; }
     const cfg = WIN_CONFIGS[id];
     if (!cfg) return;
@@ -658,7 +658,16 @@ export default function DesktopOS({ onGoSystem }: { onGoSystem: () => void }) {
       x: Math.max(100, (W - cfg.w) / 2 + (Math.random() - 0.5) * 120),
       y: Math.max(50,  (H - cfg.h) / 2 + (Math.random() - 0.5) * 80),
     });
-  };
+  }, [onGoSystem, openWindow]);
+
+  useEffect(() => {
+    const handleDockOpen = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (typeof id === "string") handleOpenIcon(id);
+    };
+    window.addEventListener("ollie:open-window", handleDockOpen);
+    return () => window.removeEventListener("ollie:open-window", handleDockOpen);
+  }, [handleOpenIcon]);
 
   const renderContent = (win: WindowDef) => {
     switch (win.type) {

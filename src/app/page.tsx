@@ -18,6 +18,7 @@ export default function Home() {
       const hash = window.location.hash.replace("#", "");
       if (["home", "works", "system"].includes(hash)) {
         setActiveTab(hash as TabType);
+        if (hash !== "home") setIsLaunched(true);
       } else {
         setActiveTab("home");
       }
@@ -33,13 +34,13 @@ export default function Home() {
   }, []);
 
   const handleTabChange = (tab: TabType) => {
+    if (tab !== "home") setIsLaunched(true);
     window.location.hash = tab;
   };
 
   return (
     <main className="w-full min-h-screen relative overflow-hidden bg-background">
-      {/* Pill Navigation (Hidden during intro if not launched, though we can just show it) */}
-      <PillNav activeTab={activeTab} onChange={handleTabChange} />
+      {(isLaunched || activeTab !== "home") && <PillNav activeTab={activeTab} onChange={handleTabChange} />}
 
       <AnimatePresence mode="wait">
         {activeTab === "home" && (
