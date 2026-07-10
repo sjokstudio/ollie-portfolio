@@ -83,7 +83,8 @@ export function PillNav({
         WebkitBackdropFilter: "blur(30px) saturate(170%)",
         border: "1px solid rgba(255,255,255,0.34)",
         borderRadius: 24,
-        padding: "9px 11px 7px",
+        // Keep a real buffer above the dock: scaled icons grow upward from their bottom edge.
+        padding: "24px 11px 7px",
         boxShadow: "0 18px 55px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.34)",
       }}
     >
