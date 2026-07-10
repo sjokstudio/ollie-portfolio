@@ -307,21 +307,30 @@ export default function SystemTab() {
   };
   const onCanvasPU = () => { isPanning.current = false; };
   
-  // Wheel always zooms (no scrolling)
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = Math.exp(-e.deltaY * 0.005);
-    // Zoom around mouse pointer
+  const zoomAt = useCallback((clientX: number, clientY: number, deltaY: number) => {
+    const delta = Math.exp(-deltaY * 0.005);
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
       const nx = mx - (mx - pan.x) * delta;
       const ny = my - (my - pan.y) * delta;
       setPan({ x: nx, y: ny });
     }
     setScale(s => Math.min(3, Math.max(0.1, s * delta)));
-  };
+  }, [pan.x, pan.y]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zoomAt(e.clientX, e.clientY, e.deltaY);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomAt]);
 
   const connections: [string, string][] = activeId === "c1" ? [["n1","n2"],["n1","n3"],["n1","n4"],["n2","n4"]] : activeId === "c2" ? [["m1","m3"],["m2","m3"]] : [["t1","t2"],["t1","t3"]];
   const nodes = activeCanvas.nodes;
@@ -396,11 +405,10 @@ export default function SystemTab() {
       {/* ── Canvas Area ── */}
       <div
         ref={containerRef}
-        style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning.current ? "grabbing" : "grab" }}
+        style={{ flex: 1, position: "relative", overflow: "hidden", cursor: isPanning.current ? "grabbing" : "grab", touchAction: "none", overscrollBehavior: "contain" }}
         onPointerDown={onCanvasPointerDown}
         onPointerMove={onCanvasPM}
         onPointerUp={onCanvasPU}
-        onWheel={onWheel}
       >
         <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
           <defs>

@@ -16,104 +16,107 @@ export function PillNav({
   activeTab: TabType;
   onChange: (tab: TabType) => void;
 }) {
-  const [hovered, setHovered] = useState<TabType | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   return (
     <nav
       style={{
         position: "fixed",
-        bottom: 18,
+        bottom: 16,
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 1000,
         display: "flex",
-        gap: 6,
+        gap: 12,
         alignItems: "flex-end",
-        background: "rgba(22,22,28,0.72)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        border: "1px solid rgba(255,255,255,0.09)",
-        borderRadius: 22,
-        padding: "10px 14px",
-        boxShadow: "0 8px 36px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.1))",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.28)",
+        borderRadius: 30,
+        padding: "10px 14px 8px",
+        boxShadow: "0 18px 55px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.28)",
       }}
     >
-      {ITEMS.map((item) => {
+      {ITEMS.map((item, index) => {
         const isActive = activeTab === item.id;
-        const isHov = hovered === item.id;
+        const distance = hoveredIndex === null ? 3 : Math.abs(hoveredIndex - index);
+        const lift = distance === 0 ? -16 : distance === 1 ? -8 : isActive ? -6 : 0;
+        const size = distance === 0 ? 72 : distance === 1 ? 62 : isActive ? 58 : 52;
         return (
           <button
             key={item.id}
             onClick={() => onChange(item.id)}
-            onMouseEnter={() => setHovered(item.id)}
-            onMouseLeave={() => setHovered(null)}
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 3,
-              padding: "6px 16px 4px",
+              justifyContent: "flex-end",
+              gap: 5,
+              width: size,
+              padding: 0,
               background: "none",
               border: "none",
               cursor: "pointer",
-              borderRadius: 14,
-              transition: "background 0.2s",
+              borderRadius: 18,
+              transition: "width 180ms cubic-bezier(.2,.8,.2,1), transform 180ms cubic-bezier(.2,.8,.2,1)",
               position: "relative",
-              /* bounce on hover */
-              transform: isActive ? "translateY(-4px)" : isHov ? "translateY(-2px)" : "translateY(0)",
+              transform: `translateY(${lift}px)`,
             }}
           >
-            {/* Active glow background */}
-            {isActive && (
+            {hoveredIndex === index && (
               <motion.div
-                layoutId="dock-glow"
+                layoutId="dock-label"
                 style={{
                   position: "absolute",
-                  inset: 0,
-                  borderRadius: 14,
-                  background: "rgba(43,127,216,0.22)",
-                  border: "1px solid rgba(43,127,216,0.3)",
+                  bottom: size + 16,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  padding: "5px 10px",
+                  borderRadius: 8,
+                  background: "rgba(22,22,28,0.82)",
+                  color: "#fff",
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 8px 22px rgba(0,0,0,0.22)",
                 }}
                 transition={{ type: "spring", stiffness: 400, damping: 34 }}
-              />
+              >{item.label}</motion.div>
             )}
 
-            {/* Icon */}
-            <span style={{
-              fontSize: 26,
-              lineHeight: 1,
-              filter: isActive ? "drop-shadow(0 0 6px rgba(244,215,88,0.5))" : "none",
-              transition: "filter 0.2s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1)",
-              position: "relative",
-              zIndex: 1,
-            }}>
+            <span
+              style={{
+                width: size,
+                height: size,
+                display: "grid",
+                placeItems: "center",
+                borderRadius: 18,
+                fontSize: size * 0.48,
+                lineHeight: 1,
+                color: "#fff",
+                background:
+                  item.id === "home" ? "linear-gradient(145deg,#2c3440,#101722)" :
+                  item.id === "works" ? "linear-gradient(145deg,#dfe3ea,#787f8b)" :
+                  "linear-gradient(145deg,#233052,#101522)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                boxShadow: isActive
+                  ? "0 12px 32px rgba(43,127,216,0.42), inset 0 1px 0 rgba(255,255,255,0.32)"
+                  : "0 10px 24px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.24)",
+                transition: "width 180ms cubic-bezier(.2,.8,.2,1), height 180ms cubic-bezier(.2,.8,.2,1), font-size 180ms cubic-bezier(.2,.8,.2,1)",
+                position: "relative",
+                zIndex: 1,
+              }}
+            >
               {item.icon}
             </span>
 
-            {/* Label */}
             <span style={{
-              fontSize: 10,
-              fontFamily: "-apple-system,'SF Pro Text','Helvetica Neue',sans-serif",
-              color: isActive ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)",
-              transition: "color 0.2s",
-              position: "relative",
-              zIndex: 1,
-            }}>
-              {item.label}
-            </span>
-
-            {/* Active dot */}
-            {isActive && (
-              <motion.div
-                layoutId="dock-dot"
-                style={{
-                  width: 4, height: 4, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.7)",
-                  position: "relative", zIndex: 1,
-                }}
-                transition={{ type: "spring", stiffness: 400, damping: 34 }}
-              />
-            )}
+              width: 5, height: 5, borderRadius: "50%",
+              background: isActive ? "rgba(255,255,255,0.82)" : "transparent",
+              boxShadow: isActive ? "0 0 10px rgba(255,255,255,0.55)" : "none",
+            }} />
           </button>
         );
       })}
