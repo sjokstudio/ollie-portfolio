@@ -976,11 +976,11 @@ function loadDesktopState(): DesktopState {
       return starter?.kind === "app" ? { ...item, ...starter, x: item.x, y: item.y } : item;
     }) : [...fallback.items];
     fallback.items.forEach(item => { if (!savedItems.some(savedItem => savedItem.id === item.id)) savedItems.push(item); });
-    const tracks = savedTracks.map(track => {
-      const starter = fallback.tracks.find(item => item.id === track.id);
-      const legacyTitle = track.title === "2026年3月31日 demo" || track.title === "2026年4月3日 demo";
-      if (starter && legacyTitle) return { ...track, ...starter, audioUrl: starter.audioUrl };
-      const merged = { ...starter, ...track, audioUrl: track.audioUrl ?? starter?.audioUrl };
+    const legacyTrackTitles = new Set(["Track 01", "Track 02", "Track 03", "2026年3月31日 demo", "2026年4月3日 demo"]);
+    const tracks = fallback.tracks.map(starter => {
+      const track = savedTracks.find(item => item.id === starter.id);
+      if (!track || legacyTrackTitles.has(track.title)) return starter;
+      const merged = { ...starter, ...track, audioUrl: track.audioUrl ?? starter.audioUrl };
       return merged.audioUrl?.startsWith("blob:") ? { ...merged, audioUrl: undefined } : merged;
     });
     const notes = Array.isArray(saved.notes) ? [...saved.notes] : [...fallback.notes];
