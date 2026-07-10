@@ -39,7 +39,7 @@ export default function Home() {
   };
 
   return (
-    <main className="w-full min-h-screen relative overflow-hidden bg-background">
+    <main className="w-full min-h-screen relative bg-background">
       {(isLaunched || activeTab !== "home") && <PillNav activeTab={activeTab} onChange={handleTabChange} />}
 
       <AnimatePresence mode="wait">
